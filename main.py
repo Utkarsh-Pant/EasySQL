@@ -28,9 +28,9 @@ activeWin = None #keeps track of current active window
 MAIN FUNCTIONS
 '''
 def is_number_regex(s):
-    """ Returns True is string is a number. """
-    if re.match("^\d+?\.\d+?$", s) is None:
-        return s.isdigit()
+    """ Returns True is string is a number[including floats]. """
+    if re.fullmatch(r"\d+") and re.fullmatch(r"\d+\.\d+", s) is None:
+        return False
     return True
 
 '''
