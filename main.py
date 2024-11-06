@@ -5,21 +5,25 @@ from tkinter import ttk
 from tkinter.font import BOLD
 import re
 from PIL import Image, ImageTk
-import inspect
 import os
 import mysql.connector
 
+window = Tk()
 
 '''
 ROOT VARIABLES
 '''
-window = Tk()
+
 screenHeight = window.winfo_screenheight()
 screenWidth = window.winfo_screenwidth()
-filePath = inspect.getfile(inspect.currentframe())[:len(os.path.basename(__file__))*-1]
+filePath = os.path.dirname(__file__) + "\\"
 details = ['localhost', 'root','',None]
-logOpened = False
-activeWin = None
+
+
+logOpened = False #Where login window is opened or not
+activeWin = None #keeps track of current active window
+
+
 '''
 MAIN FUNCTIONS
 '''
@@ -161,7 +165,7 @@ def startDBCon(db, host, username, password):
         query = f"DROP DATABASE {bton['text']};"
         a.execute(query)
         a.close()
-        try: pyperclip.copy(a)
+        try: pyperclip.copy(f"DELETED: {bton['text']}")
         except: pass
         allButtons.remove(bton)
         bton.pack_forget()
