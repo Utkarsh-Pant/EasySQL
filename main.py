@@ -1,12 +1,15 @@
 import pyperclip
 from tkinter import *
-from tkinter import messagebox
-from tkinter import ttk
-from tkinter.font import BOLD
 import re
 from PIL import Image, ImageTk
 import os
 import mysql.connector
+
+
+# I want to remove these three imports, but when I do my IDE shows many errors, so its annoying in development, will remove them later 
+from tkinter import messagebox
+from tkinter import ttk
+from tkinter import font
 
 window = Tk()
 
@@ -18,9 +21,6 @@ screenHeight = window.winfo_screenheight()
 screenWidth = window.winfo_screenwidth()
 filePath = os.path.dirname(__file__) + "\\"
 details = ['localhost', 'root','',None]
-
-
-logOpened = False #Where login window is opened or not
 activeWin = None #keeps track of current active window
 
 
@@ -29,13 +29,14 @@ MAIN FUNCTIONS
 '''
 def is_number_regex(s):
     """ Returns True is string is a number[including floats]. """
-    if re.fullmatch(r"\d+") and re.fullmatch(r"\d+\.\d+", s) is None:
+    if re.fullmatch(r"\d+", s) and re.fullmatch(r"\d+\.\d+", s) is None:
         return False
     return True
 
 '''
 LOGIN WINDOW
 '''
+logOpened = False #Where login window is opened or not
 def start():
     global logOpened
     global mLogWindow
@@ -70,7 +71,7 @@ def start():
 
     pwdLabel = Label(loginWindow, text="Password: ")
     pwdLabel.place(anchor=W, relx = 0.1, rely=0.5)
-    pwd = Entry(loginWindow, borderwidth=5, width = round((screenWidth/4) * 0.0625))
+    pwd = Entry(loginWindow, show = "*", borderwidth=5, width = round((screenWidth/4) * 0.0625))
     pwd.insert(0, '')
     pwd.place(anchor=W, relx = 0.3, rely=0.5)
 
@@ -179,7 +180,7 @@ def startDBCon(db, host, username, password):
     dbWindow = Tk()
     dbWindow.title('EasySQL')
     dbWindow.geometry(f'{screenWidth}x{screenHeight}+0+0')
-    lbl = Label(dbWindow, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), BOLD))
+    lbl = Label(dbWindow, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), font.BOLD))
     lbl.place(anchor = CENTER, relx = 0.5, rely=0.0463)
 
     lbl2 = Label(dbWindow, text="SELECT A DATABASE", fg = 'green', font = ('Helvetica', round(screenHeight*screenWidth*0.00000803766), UNDERLINE),borderwidth=1)
@@ -585,7 +586,7 @@ def startQuery(db, username, host, password, dbName):
             q.close()
 
         if len(tables) == 0:
-            messagebox.showerror("NO TABLES IN THE DATABASE")
+            messagebox.showerror("ERROR","NO TABLES IN THE DATABASE")
             return 0
 
 
@@ -647,6 +648,7 @@ def startQuery(db, username, host, password, dbName):
     def selectTable1():
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
+            return 0
 
         global activeWin
 
@@ -686,6 +688,7 @@ def startQuery(db, username, host, password, dbName):
     def selectTable2(name):
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
+            return 0
 
         global activeWin
 
@@ -872,6 +875,7 @@ def startQuery(db, username, host, password, dbName):
     def insertData1():
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
+            return 0
 
         global activeWin
 
@@ -911,6 +915,7 @@ def startQuery(db, username, host, password, dbName):
     def insertData2(name):
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
+            return 0
 
         global activeWin
 
@@ -1042,6 +1047,7 @@ def startQuery(db, username, host, password, dbName):
     def removeData():
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
+            return 0
 
         global activeWin
 
@@ -1081,6 +1087,7 @@ def startQuery(db, username, host, password, dbName):
     def removeData2(tName):
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
+            return 0
 
         global activeWin
 
@@ -1176,7 +1183,7 @@ def startQuery(db, username, host, password, dbName):
     mWindow.title('EasySQL')
     mWindow.geometry(f'{screenWidth}x{screenHeight}+0+0')
 
-    lbl = Label(mWindow, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), BOLD))
+    lbl = Label(mWindow, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), font.BOLD))
     lbl.place(anchor = CENTER, relx = 0.5, rely=0.0463)
 
     lbl2 = Label(mWindow, text="CHOOSE QUERIES TO PERFORM", fg = 'green', font = ('Helvetica', round(screenHeight*screenWidth*0.00000803766), UNDERLINE),borderwidth=1)
@@ -1238,7 +1245,7 @@ def startQuery(db, username, host, password, dbName):
 '''
 BASIC WINDOW SETUP
 '''
-lbl=Label(window, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), BOLD))
+lbl=Label(window, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), font.BOLD))
 lbl.place(anchor = CENTER, x=round(screenWidth/2), y=screenHeight*0.0463)
 window.title('EasySQL')
 window.geometry(f'{screenWidth}x{screenHeight}+0+0')
