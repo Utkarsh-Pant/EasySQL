@@ -3,6 +3,7 @@ from tkinter import *
 import re
 from PIL import Image, ImageTk
 import os
+import sys
 import mysql.connector
 import datetime
 
@@ -19,7 +20,9 @@ ROOT VARIABLES
 
 screenHeight = window.winfo_screenheight()
 screenWidth = window.winfo_screenwidth()
-filePath = os.path.dirname(__file__) + "\\"
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    filePath = sys._MEIPASS
+else: filePath = os.path.dirname(__file__)
 details = ['localhost', 'root','',None]
 activeWin = None #keeps track of current active window
 
@@ -1171,7 +1174,7 @@ lbl.place(anchor = CENTER, x=round(screenWidth/2), y=screenHeight*0.0463)
 window.title('EasySQL')
 window.geometry(f'{screenWidth}x{screenHeight}+0+0')
 
-sImg = Image.open(filePath + 'images/start.png')
+sImg = Image.open(os.path.join(filePath, 'start.png'))
 sImg = ImageTk.PhotoImage(sImg)
 sButton = Button(window, image= sImg, borderwidth=0, command = start)
 sButton.place(relx = 0.5, rely = 0.5, anchor = CENTER)
