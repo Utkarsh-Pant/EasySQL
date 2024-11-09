@@ -4,7 +4,7 @@ import re
 from PIL import Image, ImageTk
 import os
 import mysql.connector
-
+import datetime
 
 # I want to remove these three imports, but when I do my IDE shows many errors, so its annoying in development, will remove them later 
 from tkinter import messagebox
@@ -299,8 +299,10 @@ def startQuery(db, username, host, password, dbName):
             def runQueryAddCol():
 
                 def checkDate(input_text):
-                    pattern = re.compile(r"([0-9]+(-[0-9]+)+)", re.IGNORECASE)
-                    return pattern.match(input_text)
+                    try: datetime.date.fromisoformat(input_text)    
+                    except ValueError: return False
+                    return True
+
                 colName = cName.get()
                 if colName in columns:
                     messagebox.showerror("ERR!", "Column names must be unique!")
@@ -339,17 +341,17 @@ def startQuery(db, username, host, password, dbName):
                     elif dataType == "int":
                         defVal = defEntry.get()
                         if defVal.isnumeric() == False and defVal[1:].isnumeric() == False:
-                            messagebox.showerror("ERR", "INVALID DEFAULT VALUE")
+                            messagebox.showerror("ERR", "INVALID INT VALUE")
                             return 0
                     elif dataType == "decimal":
                         defVal = defEntry.get()
                         if is_number_regex(defVal) == False and is_number_regex(defVal[1:]) == False:
-                            messagebox.showerror("ERR", "INVALID DEFAULT VALUE")
+                            messagebox.showerror("ERR", "INVALID DECIMAL VALUE")
                             return 0
                     elif dataType == "date":
                         defVal = defEntry.get()
                         if checkDate(defVal) == False:
-                            messagebox.showerror("ERR", "INVALID DEFAULT VALUE")
+                            messagebox.showerror("ERR", "INVALID date VALUE")
                             return 0         
                         defVal = "\"" + defVal + "\""
                     colQuery += f" DEFAULT {defVal}"
@@ -898,8 +900,9 @@ def startQuery(db, username, host, password, dbName):
             closeAll([sWindow])
         
         def checkDate(input_text):
-            pattern = re.compile(r"([0-9]+(-[0-9]+)+)", re.IGNORECASE)
-            return pattern.match(input_text)
+            try: datetime.date.fromisoformat(input_text)
+            except ValueError: return False
+            return True
 
         def runQuery():
 
