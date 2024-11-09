@@ -23,7 +23,7 @@ screenWidth = window.winfo_screenwidth()
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     filePath = sys._MEIPASS
 else: filePath = os.path.dirname(__file__)
-details = ['localhost', 'root','',None]
+details = ['localhost',3306, 'root','',None]
 activeWin = None #keeps track of current active window
 
 
@@ -66,30 +66,39 @@ def start():
     lHost.insert(0, 'localhost')
     lHost.place(anchor=W, relx=0.3, rely = 0.3)
 
+    lPortLabel = Label(loginWindow, text="Port: ")
+    lPortLabel.place(anchor=W, relx=0.1, rely=0.4)
+    lPort = Entry(loginWindow, borderwidth=5, width = round((screenWidth/4) * 0.0625))
+    lPort.insert(0, '3306')
+    lPort.place(anchor=W, relx=0.3, rely = 0.4)
+
     usernameLabel = Label(loginWindow, text="Username: ")
-    usernameLabel.place(anchor=W, relx = 0.1, rely=0.4)
+    usernameLabel.place(anchor=W, relx = 0.1, rely=0.5)
     username = Entry(loginWindow, borderwidth=5, width = round((screenWidth/4) * 0.0625))
     username.insert(0,'root')
-    username.place(anchor=W, relx = 0.3, rely=0.4)
+    username.place(anchor=W, relx = 0.3, rely=0.5)
 
     pwdLabel = Label(loginWindow, text="Password: ")
-    pwdLabel.place(anchor=W, relx = 0.1, rely=0.5)
+    pwdLabel.place(anchor=W, relx = 0.1, rely=0.6)
     pwd = Entry(loginWindow, show = "*", borderwidth=5, width = round((screenWidth/4) * 0.0625))
     pwd.insert(0, '')
-    pwd.place(anchor=W, relx = 0.3, rely=0.5)
+    pwd.place(anchor=W, relx = 0.3, rely=0.6)
 
     def resetDef():
         lHost.delete(0,END)
+        lPort.delete(0,END)
         username.delete(0,END)
         pwd.delete(0,END)
 
         
         lHost.insert(0,'localhost')
+        lPort.insert(0,'3306')
         username.insert(0,'root')
         pwd.insert(0,'')
 
     def loginSubmit():
         host = lHost.get()
+        port = lPort.get()
         name = username.get()
         password = pwd.get()
 
@@ -97,6 +106,7 @@ def start():
         try:
             db = mysql.connector.connect(
                 host = host,
+                port = int(port),
                 username = name,
                 password = password
             )
@@ -109,7 +119,7 @@ def start():
 
         else:
             global details
-            details = [host, name, password, None]
+            details = [host, port, name, password, None]
             startDBCon(db, host, name, password)
             return db
 
@@ -141,7 +151,7 @@ def startDBCon(db, host, username, password):
                 database = name
             )
             global details
-            details[3] = name
+            details[4] = name
         except Exception as e:
             print(e)
             messagebox.showerror("ERROR!", f"UNKOWN ERROR OCCURED! ERR CODE: DBC08\n{e}")
