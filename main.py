@@ -538,7 +538,7 @@ def startQuery(db, username, host, password, dbName):
         dWindow.title('Query - Delete Table')
         dWindow.geometry(f'{round(screenWidth/3)}x{round(screenHeight/3)}+0+0')
 
-        lbl = Label(dWindow, text="DESCRIBE  ")
+        lbl = Label(dWindow, text="DELETE  ")
         lbl.place(anchor=E, rely=0.2,relx=0.5)
 
         cBox = ttk.Combobox(dWindow, value=tables, width=10, state="readonly")
@@ -553,6 +553,46 @@ def startQuery(db, username, host, password, dbName):
         dWindow.protocol("WM_DELETE_WINDOW", killSelf)
         dWindow.mainloop()
 
+
+    def tableMenu(foo):
+        if len(tables) == 0:
+            messagebox.showerror("ERR","ERROR! No Tables")
+            return 0
+
+        global activeWin
+
+        if activeWin != None: 
+            messagebox.showerror("ERROR","Another query window open!")
+            return 0
+        
+        def killSelf():
+            global activeWin
+            activeWin = None
+            closeAll([sWindow])
+
+        def runQuery():
+            tName = cBox.get()
+            killSelf()
+            foo(tName)
+            
+
+        sWindow = Tk()
+        sWindow.geometry()
+        sWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
+
+        lbl = Label(sWindow, text="Select Table: ")
+        lbl.place(anchor=E, relx=0.5, rely=0.5)
+
+        cBox = ttk.Combobox(sWindow, values = tables,state="readonly")
+        cBox.current(0)
+        cBox.place(anchor=W, relx=0.5, rely=0.5)
+
+        submitButton = Button(sWindow, text='Submit', command= runQuery)
+        submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
+
+        activeWin = sWindow
+        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
+        sWindow.mainloop()
 
     def descTable():
         global activeWin
@@ -645,47 +685,7 @@ def startQuery(db, username, host, password, dbName):
         dWindow.protocol("WM_DELETE_WINDOW", killSelf)
         dWindow.mainloop()
         
-    def selectTable1():
-        if len(tables) == 0:
-            messagebox.showerror("ERR","ERROR! No Tables")
-            return 0
-
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            global activeWin
-            activeWin = None
-            closeAll([sWindow])
-
-        def runQuery():
-            tName = cBox.get()
-            killSelf()
-            selectTable2(tName)
-            
-
-        sWindow = Tk()
-        sWindow.geometry()
-        sWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-        lbl = Label(sWindow, text="Select Table: ")
-        lbl.place(anchor=E, relx=0.5, rely=0.5)
-
-        cBox = ttk.Combobox(sWindow, values = tables,state="readonly")
-        cBox.current(0)
-        cBox.place(anchor=W, relx=0.5, rely=0.5)
-
-        submitButton = Button(sWindow, text='Submit', command= runQuery)
-        submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-
-    def selectTable2(name):
+    def selectTable(name):
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
             return 0
@@ -872,47 +872,8 @@ def startQuery(db, username, host, password, dbName):
         sWindow.protocol("WM_DELETE_WINDOW", killSelf)
         sWindow.mainloop()
 
-    def insertData1():
-        if len(tables) == 0:
-            messagebox.showerror("ERR","ERROR! No Tables")
-            return 0
 
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            global activeWin
-            activeWin = None
-            closeAll([sWindow])
-
-        def runQuery():
-            tName = cBox.get()
-            killSelf()
-            insertData2(tName)
-            
-
-        sWindow = Tk()
-        sWindow.geometry()
-        sWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-        lbl = Label(sWindow, text="Select Table: ")
-        lbl.place(anchor=E, relx=0.5, rely=0.5)
-
-        cBox = ttk.Combobox(sWindow, values = tables,state="readonly")
-        cBox.current(0)
-        cBox.place(anchor=W, relx=0.5, rely=0.5)
-
-        submitButton = Button(sWindow, text='Submit', command= runQuery)
-        submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-
-    def insertData2(name):
+    def insertData(name):
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
             return 0
@@ -1043,48 +1004,8 @@ def startQuery(db, username, host, password, dbName):
         activeWin = sWindow
         sWindow.protocol("WM_DELETE_WINDOW", killSelf)
         sWindow.mainloop()
-
-    def removeData():
-        if len(tables) == 0:
-            messagebox.showerror("ERR","ERROR! No Tables")
-            return 0
-
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            global activeWin
-            activeWin = None
-            closeAll([sWindow])
-
-        def runQuery():
-            tName = cBox.get()
-            killSelf()
-            removeData2(tName)
-            
-
-        sWindow = Tk()
-        sWindow.geometry()
-        sWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-        lbl = Label(sWindow, text="Select Table: ")
-        lbl.place(anchor=E, relx=0.5, rely=0.5)
-
-        cBox = ttk.Combobox(sWindow, values = tables,state="readonly")
-        cBox.current(0)
-        cBox.place(anchor=W, relx=0.5, rely=0.5)
-
-        submitButton = Button(sWindow, text='Submit', command= runQuery)
-        submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-    
-    def removeData2(tName):
+   
+    def removeData(tName):
         if len(tables) == 0:
             messagebox.showerror("ERR","ERROR! No Tables")
             return 0
@@ -1218,15 +1139,15 @@ def startQuery(db, username, host, password, dbName):
     deButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
     deButton.pack(fill="both", expand = YES)
 
-    sButton = Button(dbFrame, text="SELECT DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= selectTable1)
+    sButton = Button(dbFrame, text="SELECT DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= lambda: tableMenu(selectTable))
     sButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
     sButton.pack(fill="both", expand = YES)    
 
-    sButton = Button(dbFrame, text="INSERT DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= insertData1)
+    sButton = Button(dbFrame, text="INSERT DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= lambda: tableMenu(insertData))
     sButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
     sButton.pack(fill="both", expand = YES)    
 
-    rButton = Button(dbFrame, text="REMOVE DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= removeData)
+    rButton = Button(dbFrame, text="REMOVE DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= lambda: tableMenu(removeData))
     rButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
     rButton.pack(fill="both", expand = YES)  
 
