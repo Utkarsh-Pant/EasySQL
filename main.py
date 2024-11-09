@@ -50,7 +50,7 @@ def start():
     mLogWindow = loginWindow
     logOpened = True
 
-    loginWindow.protocol("WM_DELETE_WINDOW", lambda: closeAll([window, loginWindow]) if messagebox.askokcancel("Quit", "Do you want to quit?") else None)
+    loginWindow.protocol("WM_DELETE_WINDOW", lambda: [window.destroy(), loginWindow.destroy()] if messagebox.askokcancel("Quit", "Do you want to quit?") else None)
     loginWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
 
     mainText = Label(loginWindow, text = "Enter SQL details")
@@ -117,9 +117,6 @@ def start():
 
     loginWindow.mainloop()
     
-    
-def closeAll(i):
-    for j in i: j.destroy()
 
 '''
 DATABASE SELECTION
@@ -128,7 +125,7 @@ DATABASE SELECTION
 def startDBCon(db, host, username, password):
 
     def newDB():
-        closeAll([dbWindow])
+        dbWindow.destroy()
         createNewDB(db, host, username, password)
 
     def conDB(db, name):
@@ -148,7 +145,7 @@ def startDBCon(db, host, username, password):
             return False
         
         else:
-            closeAll([dbWindow])
+            dbWindow.destroy()
             startQuery(db, username, host, password, name)
             return db
 
@@ -171,9 +168,9 @@ def startDBCon(db, host, username, password):
         allButtons.remove(bton)
         bton.pack_forget()
         bton.destroy()
-
     try:
-        closeAll([mLogWindow, window])
+        window.destroy()
+        mLogWindow.destroy()
     except: pass
 
     delMode = False
@@ -225,7 +222,7 @@ def startDBCon(db, host, username, password):
 def createNewDB(db, host, username, password):
     createWindow = Tk()
     def end(db):
-        closeAll([createWindow])
+        createWindow.destroy()
         db.close()
         db = mysql.connector.connect(
             username = username,
@@ -292,7 +289,7 @@ def startQuery(db, username, host, password, dbName):
             global activeWin
             activeWin = None
             # Code By Utkarsh Pant :) https://github.com/utkarsh-pant
-            closeAll([sWindow])
+            sWindow.destroy()
         
         def addCol():
 
@@ -516,7 +513,7 @@ def startQuery(db, username, host, password, dbName):
             cursor.close()
             global activeWin
             activeWin = None
-            closeAll([dWindow])
+            dWindow.destroy()
 
         def runQuery():
             q = db.cursor(buffered=True)
@@ -570,7 +567,7 @@ def startQuery(db, username, host, password, dbName):
         def killSelf():
             global activeWin
             activeWin = None
-            closeAll([sWindow])
+            sWindow.destroy()
 
         def runQuery():
             tName = cBox.get()
@@ -606,7 +603,7 @@ def startQuery(db, username, host, password, dbName):
         def killSelf():
             global activeWin
             activeWin = None
-            closeAll([dWindow])
+            dWindow.destroy()
 
         def runQuery():
             print(tables)
@@ -709,7 +706,7 @@ def startQuery(db, username, host, password, dbName):
             )
             global activeWin
             activeWin = None
-            closeAll([sWindow])
+            sWindow.destroy()
 
         def runQuery():
             nonlocal wOp
@@ -897,7 +894,7 @@ def startQuery(db, username, host, password, dbName):
             )
             global activeWin
             activeWin = None
-            closeAll([sWindow])
+            sWindow.destroy()
         
         def checkDate(input_text):
             try: datetime.date.fromisoformat(input_text)
@@ -1022,7 +1019,7 @@ def startQuery(db, username, host, password, dbName):
         def killSelf():
             global activeWin
             activeWin = None
-            closeAll([sWindow])
+            sWindow.destroy()
 
         def runQuery():
             query = f"DELETE FROM {tName}"
@@ -1179,5 +1176,5 @@ sImg = ImageTk.PhotoImage(sImg)
 sButton = Button(window, image= sImg, borderwidth=0, command = start)
 sButton.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
-window.protocol("WM_DELETE_WINDOW", lambda: closeAll([window, mLogWindow]) if logOpened else closeAll([window]))
+window.protocol("WM_DELETE_WINDOW", lambda: [window.destroy(), mLogWindow.destroy()] if logOpened else window.destroy())
 window.mainloop()
