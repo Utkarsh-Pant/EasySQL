@@ -20,17 +20,18 @@ ROOT VARIABLES
 
 screenHeight = window.winfo_screenheight()
 screenWidth = window.winfo_screenwidth()
+
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     filePath = sys._MEIPASS
 else: filePath = os.path.dirname(__file__)
-details = ['localhost',3306, 'root','',None]
-activeWin = None #keeps track of current active window
+
+activeWindow = None
 
 
 '''
 MAIN FUNCTIONS
 '''
-def is_number_regex(s):
+def isValidNum(s):
     """ Returns True is string is a number[including floats]. """
     if re.fullmatch(r"\d+", s) and re.fullmatch(r"\d+\.\d+", s) is None:
         return False
@@ -39,19 +40,19 @@ def is_number_regex(s):
 '''
 LOGIN WINDOW
 '''
-logOpened = False #Where login window is opened or not
+loginOpened = False #Where login window is opened or not
 def start():
-    global logOpened
-    global mLogWindow
+    global loginOpened
 
-    if logOpened == True: 
-        mLogWindow.bell()
+    if loginOpened == True: 
+        mainLoginWindow.bell()
         return 0
 
     loginWindow = Tk()
+    loginWindow.title("Login Data")
 
-    mLogWindow = loginWindow
-    logOpened = True
+    mainLoginWindow = loginWindow
+    loginOpened = True
 
     loginWindow.protocol("WM_DELETE_WINDOW", lambda: [window.destroy(), loginWindow.destroy()] if messagebox.askokcancel("Quit", "Do you want to quit?") else None)
     loginWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
@@ -84,7 +85,7 @@ def start():
     pwd.insert(0, '')
     pwd.place(anchor=W, relx = 0.3, rely=0.6)
 
-    def resetDef():
+    def resetData():
         lHost.delete(0,END)
         lPort.delete(0,END)
         username.delete(0,END)
@@ -118,13 +119,13 @@ def start():
             return False
 
         else:
-            global details
-            details = [host, port, name, password, None]
+            loginWindow.destroy()
+            window.destroy()
             startDBCon(db, host, name, password)
             return db
 
     submitButton = Button(loginWindow, text = "Submit", command = loginSubmit)
-    defButton = Button(loginWindow, text="Reset to default", command = resetDef)
+    defButton = Button(loginWindow, text="Reset to default", command = resetData)
     submitButton.place(anchor=E, relx = 0.5, rely = 0.7)
     defButton.place(anchor=W, relx=0.5, rely = 0.7)
 
@@ -150,8 +151,6 @@ def startDBCon(db, host, username, password):
                 password = password,
                 database = name
             )
-            global details
-            details[4] = name
         except Exception as e:
             print(e)
             messagebox.showerror("ERROR!", f"UNKOWN ERROR OCCURED! ERR CODE: DBC08\n{e}")
@@ -181,11 +180,7 @@ def startDBCon(db, host, username, password):
         allButtons.remove(bton)
         bton.pack_forget()
         bton.destroy()
-    try:
-        window.destroy()
-        mLogWindow.destroy()
-    except: pass
-
+    
     delMode = False
     dbWindow = Tk()
     dbWindow.title('EasySQL')
@@ -273,15 +268,15 @@ def createNewDB(db, host, username, password):
 def startQuery(db, username, host, password, dbName):
 
     tables = []
-    activeWin = None
+    activeWindow = None
 
     # Different Queries
     def createTable():
 
-        global activeWin
+        global activeWindow
         columns = {}
 
-        if activeWin != None: 
+        if activeWindow != None: 
             messagebox.showerror("ERROR","Another query window open!")
             return 0
         
@@ -299,8 +294,8 @@ def startQuery(db, username, host, password, dbName):
             tables.clear()
             for i in cursor: tables.append(i[0])
             cursor.close()
-            global activeWin
-            activeWin = None
+            global activeWindow
+            activeWindow = None
             # Code By Utkarsh Pant :) https://github.com/utkarsh-pant
             sWindow.destroy()
         
@@ -355,7 +350,7 @@ def startQuery(db, username, host, password, dbName):
                             return 0
                     elif dataType == "decimal":
                         defVal = defEntry.get()
-                        if is_number_regex(defVal) == False and is_number_regex(defVal[1:]) == False:
+                        if isValidNum(defVal) == False and isValidNum(defVal[1:]) == False:
                             messagebox.showerror("ERR", "INVALID DECIMAL VALUE")
                             return 0
                     elif dataType == "date":
@@ -496,13 +491,13 @@ def startQuery(db, username, host, password, dbName):
         displayTable.heading("Attributes", text="Attributes", anchor = W)        
         displayTable.pack(fill=BOTH, expand=YES)
 
-        activeWin = sWindow
+        activeWindow = sWindow
         sWindow.protocol("WM_DELETE_WINDOW", killSelf)
         sWindow.mainloop()
 
     def dropTable():
-        global activeWin
-        if activeWin != None: 
+        global activeWindow
+        if activeWindow != None: 
             messagebox.showerror("ERROR","Another query window open!")
             return 0
 
@@ -524,8 +519,8 @@ def startQuery(db, username, host, password, dbName):
             tables.clear()
             for i in cursor: tables.append(i[0])
             cursor.close()
-            global activeWin
-            activeWin = None
+            global activeWindow
+            activeWindow = None
             dWindow.destroy()
 
         def runQuery():
@@ -560,7 +555,7 @@ def startQuery(db, username, host, password, dbName):
         submitButton = Button(dWindow, text='DELETE TABLE', command= runQuery)
         submitButton.place(anchor=CENTER, rely=0.4, relx=0.5)
 
-        activeWin = dWindow
+        activeWindow = dWindow
 
         dWindow.protocol("WM_DELETE_WINDOW", killSelf)
         dWindow.mainloop()
@@ -571,15 +566,15 @@ def startQuery(db, username, host, password, dbName):
             messagebox.showerror("ERR","ERROR! No Tables")
             return 0
 
-        global activeWin
+        global activeWindow
 
-        if activeWin != None: 
+        if activeWindow != None: 
             messagebox.showerror("ERROR","Another query window open!")
             return 0
         
         def killSelf():
-            global activeWin
-            activeWin = None
+            global activeWindow
+            activeWindow = None
             sWindow.destroy()
 
         def runQuery():
@@ -602,20 +597,20 @@ def startQuery(db, username, host, password, dbName):
         submitButton = Button(sWindow, text='Submit', command= runQuery)
         submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
 
-        activeWin = sWindow
+        activeWindow = sWindow
         sWindow.protocol("WM_DELETE_WINDOW", killSelf)
         sWindow.mainloop()
 
     def descTable():
-        global activeWin
+        global activeWindow
 
-        if activeWin != None: 
+        if activeWindow != None: 
             messagebox.showerror("ERROR","Another query window open!")
             return 0
             
         def killSelf():
-            global activeWin
-            activeWin = None
+            global activeWindow
+            activeWindow = None
             dWindow.destroy()
 
         def runQuery():
@@ -693,7 +688,7 @@ def startQuery(db, username, host, password, dbName):
 
         resultTable.pack(fill=BOTH,expand=YES)
         
-        activeWin = dWindow
+        activeWindow = dWindow
         dWindow.protocol("WM_DELETE_WINDOW", killSelf)
         dWindow.mainloop()
         
@@ -702,9 +697,9 @@ def startQuery(db, username, host, password, dbName):
             messagebox.showerror("ERR","ERROR! No Tables")
             return 0
 
-        global activeWin
+        global activeWindow
 
-        if activeWin != None: 
+        if activeWindow != None: 
             messagebox.showerror("ERROR","Another query window open!")
             return 0
         
@@ -717,8 +712,8 @@ def startQuery(db, username, host, password, dbName):
                 password = password,
                 db = dbName
             )
-            global activeWin
-            activeWin = None
+            global activeWindow
+            activeWindow = None
             sWindow.destroy()
 
         def runQuery():
@@ -733,7 +728,7 @@ def startQuery(db, username, host, password, dbName):
                 operator = wOp.get()
                 if wNot.get() == "IS NOT": query += "NOT "
                 queryVal = wEntry.get()
-                if is_number_regex(queryVal) == False and is_number_regex(queryVal[1:]) == False and queryVal[0]=="-" and queryVal != 'NULL': queryVal = "\"" + queryVal + "\""
+                if isValidNum(queryVal) == False and isValidNum(queryVal[1:]) == False and queryVal[0]=="-" and queryVal != 'NULL': queryVal = "\"" + queryVal + "\""
                 if queryVal == 'NULL':
                     if operator == '=': operator = 'IS'
                     elif operator == '!=': operator = 'IS NOT'
@@ -880,7 +875,7 @@ def startQuery(db, username, host, password, dbName):
         submitButton = Button(sWindow, text='RUN QUERY', command= runQuery)
         submitButton.place(anchor=CENTER, relx=0.5, rely = 0.8)
 
-        activeWin = sWindow
+        activeWindow = sWindow
         sWindow.protocol("WM_DELETE_WINDOW", killSelf)
         sWindow.mainloop()
 
@@ -890,9 +885,9 @@ def startQuery(db, username, host, password, dbName):
             messagebox.showerror("ERR","ERROR! No Tables")
             return 0
 
-        global activeWin
+        global activeWindow
 
-        if activeWin != None: 
+        if activeWindow != None: 
             messagebox.showerror("ERROR","Another query window open!")
             return 0
         
@@ -905,8 +900,8 @@ def startQuery(db, username, host, password, dbName):
                 password = password,
                 db = dbName
             )
-            global activeWin
-            activeWin = None
+            global activeWindow
+            activeWindow = None
             sWindow.destroy()
         
         def checkDate(input_text):
@@ -944,7 +939,7 @@ def startQuery(db, username, host, password, dbName):
                         messagebox.showerror("ERR", "INVALID VALUE")
                         return 0
                 elif dataType == "decimal":
-                    if is_number_regex(data) == False and is_number_regex(data) == False:
+                    if isValidNum(data) == False and isValidNum(data) == False:
                         messagebox.showerror("ERR", "INVALID VALUE")
                         return 0
                 elif dataType == "date":
@@ -1014,7 +1009,7 @@ def startQuery(db, username, host, password, dbName):
         submitButton = Button(sWindow, text = "Run Query", command = runQuery)
         submitButton.place(relx=0.5, rely= 0.9, anchor = N)
 
-        activeWin = sWindow
+        activeWindow = sWindow
         sWindow.protocol("WM_DELETE_WINDOW", killSelf)
         sWindow.mainloop()
    
@@ -1023,15 +1018,15 @@ def startQuery(db, username, host, password, dbName):
             messagebox.showerror("ERR","ERROR! No Tables")
             return 0
 
-        global activeWin
+        global activeWindow
 
-        if activeWin != None: 
+        if activeWindow != None: 
             messagebox.showerror("ERROR","Another query window open!")
             return 0
         
         def killSelf():
-            global activeWin
-            activeWin = None
+            global activeWindow
+            activeWindow = None
             sWindow.destroy()
 
         def runQuery():
@@ -1041,7 +1036,7 @@ def startQuery(db, username, host, password, dbName):
                 operator = wOp.get()
                 if wNot.get() == "IS NOT": query += "NOT "
                 queryVal = wEntry.get()
-                if is_number_regex(queryVal) == False and is_number_regex(queryVal[1:]) == False and queryVal[0]=="-" and queryVal != 'NULL': queryVal = "\"" + queryVal + "\""
+                if isValidNum(queryVal) == False and isValidNum(queryVal[1:]) == False and queryVal[0]=="-" and queryVal != 'NULL': queryVal = "\"" + queryVal + "\""
                 if queryVal == 'NULL':
                     if operator == '=': operator = 'IS'
                     elif operator == '!=': operator = 'IS NOT'
@@ -1095,7 +1090,7 @@ def startQuery(db, username, host, password, dbName):
         submitButton = Button(sWindow, text='Submit', command= runQuery)
         submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
 
-        activeWin = sWindow
+        activeWindow = sWindow
         sWindow.protocol("WM_DELETE_WINDOW", killSelf)
         sWindow.mainloop()
 
@@ -1189,5 +1184,5 @@ sImg = ImageTk.PhotoImage(sImg)
 sButton = Button(window, image= sImg, borderwidth=0, command = start)
 sButton.place(relx = 0.5, rely = 0.5, anchor = CENTER)
 
-window.protocol("WM_DELETE_WINDOW", lambda: [window.destroy(), mLogWindow.destroy()] if logOpened else window.destroy())
+window.protocol("WM_DELETE_WINDOW", lambda: window.destroy())
 window.mainloop()
