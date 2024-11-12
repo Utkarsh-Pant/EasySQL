@@ -6,8 +6,9 @@ from tkinter import ttk
 from tkinter import messagebox
 
 import mysql.connector
-
+import pyperclip
 from PIL import Image, ImageTk
+
 initialWindow = Tk()
 initialWindow.title("EasySQL")
 
@@ -120,9 +121,11 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
         def createDbSubmit(name):
             cursor = connection.cursor(buffered=True)
-            cursor.execute(f"CREATE DATABASE {name};")
+            query = f"CREATE DATABASE {name};"
+            cursor.execute(query)
             cursor.close()
             connection.commit()
+            pyperclip.copy(query)
 
             nameEntry.destroy()
             submitButton.destroy()
@@ -150,9 +153,11 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
         nonlocal allButtons
 
         cursor = connection.cursor(buffered=True)
-        cursor.execute(f"DROP DATABASE {db['text']};")
+        query = f"DROP DATABASE {db['text']};"
+        cursor.execute(query)
         cursor.close()
         connection.commit()
+        pyperclip.copy(query)
 
         allButtons.remove(db)
         db.pack_forget()
@@ -200,7 +205,9 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
     
     cursor = connection.cursor(buffered=True)
-    cursor.execute("SHOW DATABASES;")
+    query = "SHOW DATABASES;"
+    cursor.execute(query)
+    pyperclip.copy(query)
 
     allButtons = []
     for db in cursor:
