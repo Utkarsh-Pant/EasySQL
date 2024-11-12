@@ -2,12 +2,12 @@ import sys, os
 
 from tkinter import *
 from tkinter import font
+from tkinter import ttk
 import mysql.connector
 
 from PIL import Image, ImageTk
 initialWindow = Tk()
 initialWindow.title("EasySQL")
-print(type(initialWindow))
 
 
 
@@ -68,7 +68,7 @@ def startFunction(initialWindow, startButton: Button):
         passwordEntry.insert(0,'')
 
     def submitDetails():
-        
+
         host = hostEntry.get()
         port = portEntry.get()
         username = usernameEntry.get()
@@ -108,11 +108,39 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
     '''
     Database connection menu
     '''
+
+
+
     subHeading.config(text="Choose Database")
 
-    selectorParentFrame = LabelFrame(initialWindow)
-    selectorParentFrame.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.5)
+    selectorCanvas = Canvas(initialWindow)
+    selectorCanvas.place(anchor=N, relx=0.5, rely=0.3, relwidth=0.5, relheight=0.5)
+    selectorScrollbar = Scrollbar(initialWindow, orient="vertical", command=selectorCanvas.yview)
+    selectorScrollbar.place(anchor=W, relx=0.75, rely=0.55, relheight=0.5)
+    selectorCanvas.configure(yscrollcommand=selectorScrollbar.set)
     
+
+    buttonFrame = Frame(selectorCanvas)
+    selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
+
+    
+    cursor = connection.cursor(buffered=True)
+    cursor.execute("SHOW DATABASES;")
+
+    allButtons = []
+    for i in cursor:
+        t = Button(buttonFrame, text=i[0], borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W)
+        #t.configure(command= lambda n=i[0], b=t: conDB(connection, n) if delMode == False else delDB(b))
+        t.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
+        t.grid(row=len(allButtons), column=0, pady=5)
+        allButtons.append(t)
+    
+    
+    buttonFrame.update_idletasks()
+    selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
+    cursor.close()
+
+
 
 
 '''
