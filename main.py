@@ -119,9 +119,26 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
     def createDb():
 
+        '''
+        Function called when create new database button is clicked
+        Temporarily changes menu to a create database menu
+        Then creates the database and changes back to the database connection menu
+        '''
+
         def createDbSubmit(name):
+            '''
+            Actually creates the database after submit button is pressed
+            Validates the input and creates the database
+            Destroys the new elements, and recalls the dbConnectionMenu function
+            '''
+
+            if name.isalnum() == False or name[-1] == " ":
+                messagebox.showerror("Invalid Database Name", "Database name can only contain letters and numbers")
+                initialWindow.bell()
+                return 0
+
             cursor = connection.cursor(buffered=True)
-            query = f"CREATE DATABASE {name};"
+            query = f"CREATE DATABASE `{name}`;"
             cursor.execute(query)
             cursor.close()
             connection.commit()
@@ -149,11 +166,16 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
         pass
 
     def deleteDb(db):
+        '''
+        Function called when a database button is clicked in delete mode
+        Drops the database and deletes the button from the menu
+        '''
+
 
         nonlocal allButtons
 
         cursor = connection.cursor(buffered=True)
-        query = f"DROP DATABASE {db['text']};"
+        query = f"DROP DATABASE `{db['text']}`;"
         cursor.execute(query)
         cursor.close()
         connection.commit()
@@ -166,6 +188,10 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
         pass
 
     def delModeToggle(allButtons):
+        '''
+        Method called when swithcing between delete mode and normal mode
+        Changes color of buttons and swaps value of delMode
+        '''
         nonlocal delMode
         delMode = not delMode
         if delMode == True: 
@@ -175,6 +201,12 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
                 
 
     def connectDB(db):
+
+        '''
+        Function called when a database button is clicked.
+        Makes the connection to the database and changes the menu to the query menu; deleting current elements
+        '''
+
         nonlocal connection, selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
         connection.close()
         connection = mysql.connector.connect(host=host, port=int(port), user=username, password=password, database=db['text'])
