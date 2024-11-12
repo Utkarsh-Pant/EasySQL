@@ -3,6 +3,8 @@ import sys, os
 from tkinter import *
 from tkinter import font
 from tkinter import ttk
+from tkinter import messagebox
+
 import mysql.connector
 
 from PIL import Image, ImageTk
@@ -55,6 +57,7 @@ def startFunction(initialWindow, startButton: Button):
     passwordEntry.insert(0, '')
     passwordEntry.place(anchor=W, relx=0.5, rely = 0.6)    
 
+    errorLabel = Label(initialWindow, text="Invalid Connection Details", fg='red', font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
 
     def resetDetails():
         hostEntry.delete(0,END)
@@ -77,7 +80,6 @@ def startFunction(initialWindow, startButton: Button):
         try:
             connection = mysql.connector.connect(host=host, port=int(port), user=username, password=password)
         except:
-            errorLabel = Label(initialWindow, text="Invalid Connection Details", fg='red', font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
             errorLabel.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.8)
             initialWindow.bell()
             return 0
@@ -94,6 +96,9 @@ def startFunction(initialWindow, startButton: Button):
         passwordEntry.destroy()
         submitButton.destroy()
         resetButton.destroy()
+        errorLabel.destroy()
+        
+        
         
         dbConnectionMenu(initialWindow, subHeading, connection, host, port, username, password)
                      
@@ -109,6 +114,76 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
     Database connection menu
     '''
 
+    delMode = False
+
+    def createDb():
+
+        def createDbSubmit(name):
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(f"CREATE DATABASE {name};")
+            cursor.close()
+            connection.commit()
+
+            nameEntry.destroy()
+            submitButton.destroy()
+            dbConnectionMenu(initialWindow, subHeading, connection, host, port, username, password)
+
+        nonlocal selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
+
+        selectorCanvas.destroy()
+        selectorScrollbar.destroy()
+        buttonFrame.destroy()
+        createDbButton.destroy()
+        deleteDbButton.destroy()
+        for buttons in allButtons: buttons.destroy()
+
+        subHeading.config(text="Enter new database name")
+        nameEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
+        nameEntry.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.5)
+
+        submitButton = Button(initialWindow, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command = lambda: createDbSubmit(nameEntry.get()))
+        submitButton.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.6)
+        pass
+
+    def deleteDb(db):
+
+        nonlocal allButtons
+
+        cursor = connection.cursor(buffered=True)
+        cursor.execute(f"DROP DATABASE {db['text']};")
+        cursor.close()
+        connection.commit()
+
+        allButtons.remove(db)
+        db.pack_forget()
+        db.destroy()
+
+        pass
+
+    def delModeToggle(allButtons):
+        nonlocal delMode
+        delMode = not delMode
+        if delMode == True: 
+            for dbButton in allButtons: dbButton['fg']="red"                
+        else:
+            for dbButton in allButtons: dbButton['fg'] = "black"
+                
+
+    def connectDB(db):
+        nonlocal connection, selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
+        connection.close()
+        connection = mysql.connector.connect(host=host, port=int(port), user=username, password=password, database=db['text'])
+        
+        selectorCanvas.destroy()
+        selectorScrollbar.destroy()
+        buttonFrame.destroy()
+        createDbButton.destroy()
+        deleteDbButton.destroy()
+        for buttons in allButtons: buttons.destroy()
+
+        queryMenu(initialWindow, subHeading, connection, host, port, username, password, db)
+
+        
 
 
     subHeading.config(text="Choose Database")
@@ -128,19 +203,26 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
     cursor.execute("SHOW DATABASES;")
 
     allButtons = []
-    for i in cursor:
-        t = Button(buttonFrame, text=i[0], borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W)
-        #t.configure(command= lambda n=i[0], b=t: conDB(connection, n) if delMode == False else delDB(b))
-        t.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-        t.grid(row=len(allButtons), column=0, pady=5)
-        allButtons.append(t)
+    for db in cursor:
+        dbButton = Button(buttonFrame, text=db[0], borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W)
+        dbButton.configure(command= lambda dbButton = dbButton: connectDB(dbButton) if delMode == False else deleteDb(dbButton))
+        dbButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
+        dbButton.grid(row=len(allButtons), column=0, pady=0.1)
+        allButtons.append(dbButton)
     
     
     buttonFrame.update_idletasks()
     selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
     cursor.close()
 
+    createDbButton = Button(initialWindow, text="Create New Database", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command = createDb)
+    createDbButton.place(anchor = W, relx=0.25, rely= 0.85)
+    deleteDbButton = Button(initialWindow, text="Delete Database", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command= lambda: delModeToggle(allButtons))
+    deleteDbButton.place(anchor = E, relx=0.75, rely= 0.85)
 
+
+def queryMenu(initialWindow, subHeading, connection, host, port, username, password, db):
+    subHeading.config(text="Select SQL Query")
 
 
 '''
