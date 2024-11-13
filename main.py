@@ -23,6 +23,7 @@ screenWidth = initialWindow.winfo_screenwidth()
 
 
 
+
 def startFunction(initialWindow, startButton: Button):
     '''
     First Function Ran.
@@ -243,9 +244,8 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
     allButtons = []
     for db in cursor:
-        dbButton = Button(buttonFrame, text=db[0], borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W)
+        dbButton = Button(buttonFrame, text=db[0], borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
         dbButton.configure(command= lambda dbButton = dbButton: connectDB(dbButton) if delMode == False else deleteDb(dbButton))
-        dbButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
         dbButton.grid(row=len(allButtons), column=0, pady=0.1)
         allButtons.append(dbButton)
     
@@ -262,6 +262,84 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
 def queryMenu(initialWindow, subHeading, connection, host, port, username, password, db):
     subHeading.config(text="Select SQL Query")
+
+    selectorCanvas = Canvas(initialWindow)
+    selectorCanvas.place(anchor=N, relx=0.5, rely=0.3, relwidth=0.5, relheight=0.5)
+    selectorScrollbar = Scrollbar(initialWindow, orient="vertical", command=selectorCanvas.yview)
+    selectorScrollbar.place(anchor=W, relx=0.75, rely=0.55, relheight=0.5)
+    selectorCanvas.configure(yscrollcommand=selectorScrollbar.set)
+    
+
+    buttonFrame = Frame(selectorCanvas)
+    selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
+
+    supportedQueries = {"Create Table": createTableMenu, "Insert Data": insertDataMenu, "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
+    i = 0
+    for key,value in supportedQueries.items():
+        qButton = Button(buttonFrame, text=key, borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
+        qButton.configure(command= value)
+        qButton.grid(row=i, column=0, pady=0.1)
+        i+=1
+
+    buttonFrame.update_idletasks()
+    selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
+
+
+def createTableMenu(columnData: list[str] = []):
+
+    def addColumnMenu():
+        nonlocal tableMenu, tableNameLabel, tableNameEntry, displayTable, submitButton, addColButton
+
+        displayTable.destroy()
+        submitButton.destroy()
+
+        tableNameLabel.config(text="Column Name:")
+        dVal = IntVar(tableMenu)
+        dCheck = ttk.Checkbutton(tableMenu, variable = dVal)
+        dCheck.place(relx = 0.5, rely= 0.4, anchor = E)
+
+        addColButton.config(command=lambda: print(dVal.get()))
+
+    tableMenu = Tk()
+    tableMenu.title("Create Table")
+    tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+
+    tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+    tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
+    tableNameEntry = Entry(tableMenu, width = round((screenWidth/4) * 0.0675), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
+    tableNameEntry.place(anchor= E, relx=0.9, rely= 0.15)            
+
+    displayTable = ttk.Treeview(tableMenu)
+    displayTable['columns'] = ('Column', 'Attributes')
+    displayTable.column("#0", minwidth=10)
+    displayTable.column("Column", minwidth = 10)
+    displayTable.column("Attributes", minwidth = 10)
+    displayTable.heading("#0", text="S. No.", anchor = W)        
+    displayTable.heading("Column", text="Column", anchor = W)
+    displayTable.heading("Attributes", text="Attributes", anchor = W)        
+    displayTable.place(anchor=N, relx = 0.5, rely = 0.3, width = screenWidth/2.5)
+
+    for i in range(len(columnData)):
+        displayTable.insert(parent="", index='end', iid = i, text=i, values = (columnData[i][0], columnData[i][1]))
+
+    submitButton = Button(tableMenu, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=lambda: print("Submitted"))
+    submitButton.place(anchor=E, relx=0.8, rely= 0.85)
+
+    addColButton = Button(tableMenu, text="Add Column", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=addColumnMenu)
+    addColButton.place(anchor=W, relx=0.2, rely= 0.85)
+
+
+    tableMenu.mainloop()
+
+
+
+insertDataMenu = lambda: print("Insert Data")
+selectDataMenu = lambda: print("Select Data")
+updateDataMenu = lambda: print("Update Data")
+deleteDataMenu = lambda: print("Delete Data")
+dropTableMenu = lambda: print("Drop Table")
+showTablesMenu = lambda: print("Show Tables")
+
 
 
 '''
