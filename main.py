@@ -7,7 +7,7 @@ from tkinter import messagebox
 
 import mysql.connector
 import pyperclip
-from PIL import Image, ImageTk
+from PIL import ImageTk
 
 
 initialWindow = Tk()
@@ -52,46 +52,30 @@ def startFunction(initialWindow, startButton: Button):
     subHeading=Label(initialWindow, text="Enter SQL connection details", font=('Terminal', round(screenHeight*screenWidth*0.000018113)))
     subHeading.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.2)
 
-    hostLabel = Label(initialWindow, text="Localhost:", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
-    hostLabel.place(anchor=E, relx=0.5, rely=0.3)
-    hostEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
-    hostEntry.insert(0, 'localhost')
-    hostEntry.place(anchor=W, relx=0.5, rely = 0.3)
+    dataWidgets = ["Localhost", "Port", "Username", "Password"]
+    defaultValues = ['localhost', '3306', 'root', '']
 
-    portLabel = Label(initialWindow, text="Port:", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
-    portLabel.place(anchor=E, relx=0.5, rely=0.4)
-    portEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
-    portEntry.insert(0, '3306')
-    portEntry.place(anchor=W, relx=0.5, rely = 0.4)
+    for i in range(len(dataWidgets)):
+        dataLabel = Label(initialWindow, text=dataWidgets[i], font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
+        dataLabel.place(anchor=E, relx=0.5, rely=0.3 + i*0.1)
+        dataEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
+        dataEntry.insert(0, defaultValues[i])
+        dataEntry.place(anchor=W, relx=0.5, rely = 0.3 + i*0.1)
+        dataWidgets[i] = [dataLabel, dataEntry]
 
-    usernameLabel = Label(initialWindow, text="Username:", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
-    usernameLabel.place(anchor=E, relx=0.5, rely=0.5)
-    usernameEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
-    usernameEntry.insert(0, 'root')
-    usernameEntry.place(anchor=W, relx=0.5, rely = 0.5)
-
-    passwordLabel = Label(initialWindow, text="Password:", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
-    passwordLabel.place(anchor=E, relx=0.5, rely=0.6)
-    passwordEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black', show='*')
-    passwordEntry.insert(0, '')
-    passwordEntry.place(anchor=W, relx=0.5, rely = 0.6)    
+    dataWidgets[-1][-1].config(show='*')   #Change password entry display to show stars
+    
 
     errorLabel = Label(initialWindow, text="Invalid Connection Details", fg='red', font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
 
-    def resetDetails():
-        hostEntry.delete(0,END)
-        portEntry.delete(0,END)
-        usernameEntry.delete(0,END)
-        passwordEntry.delete(0,END)
-
-        hostEntry.insert(0,'localhost')
-        portEntry.insert(0,'3306')
-        usernameEntry.insert(0,'root')
-        passwordEntry.insert(0,'')
+    def resetDetails(): 
+        for i in dataWidgets:
+            i[1][0].delete(0, END)
+            i[1][0].insert(0, defaultValues[dataWidgets.index(i)])
 
     def submitDetails():
         try:
-            connection = mysql.connector.connect(host=hostEntry.get(), port=int(portEntry.get()), user=usernameEntry.get(), password=passwordEntry.get())
+            connection = mysql.connector.connect(host=dataWidgets[0][1].get(), port=int(dataWidgets[1][1].get()), user=dataWidgets[2][1].get(), password=dataWidgets[3][1].get())
         except:
             errorLabel.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.8)
             initialWindow.bell()
@@ -99,14 +83,10 @@ def startFunction(initialWindow, startButton: Button):
 
 
         #Destroy all widgets of the current window before moving onto the next. SubHeading is not destroyed as it is used in the next window
-        hostLabel.destroy()
-        hostEntry.destroy()
-        portLabel.destroy()
-        portEntry.destroy()
-        usernameLabel.destroy()
-        usernameEntry.destroy()
-        passwordLabel.destroy()
-        passwordEntry.destroy()
+        for i in dataWidgets:
+            i[0].destroy()
+            i[1].destroy()
+
         submitButton.destroy()
         resetButton.destroy()
         errorLabel.destroy()
@@ -450,7 +430,7 @@ def createTableMenu(connection,tableMenu: Tk = None, columnData: list[list[str]]
     addColButton.place(anchor=W, relx=0.2, rely= 0.85)
 
 
-
+#just temporary
 insertDataMenu = lambda: print("Insert Data")
 selectDataMenu = lambda: print("Select Data")
 updateDataMenu = lambda: print("Update Data")
