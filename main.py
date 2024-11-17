@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, re, datetime
 
 from tkinter import *
 from tkinter import font
@@ -8,6 +8,7 @@ from tkinter import messagebox
 import mysql.connector
 import pyperclip
 from PIL import Image, ImageTk
+
 
 initialWindow = Tk()
 initialWindow.title("EasySQL")
@@ -22,8 +23,24 @@ screenHeight = initialWindow.winfo_screenheight()
 screenWidth = initialWindow.winfo_screenwidth()
 
 
+def notValidIdentifier(text):
+    return text[-1] == " " or re.fullmatch(r"[0-9a-zA-Z$_\s.]+", text) == None
 
-
+def notTypeValid(type, text):
+    if type=="int":
+        return re.fullmatch(r"[0-9]+", text) == None
+    elif type=="float":
+        return re.fullmatch(r"\d+", text) == None and re.fullmatch(r"\d+\.\d+", text) == None
+    elif type=="date":
+        try: datetime.date.fromisoformat(text)
+        except ValueError: return True
+        return False
+    elif type=="char":
+        return len(text) != 0
+    elif type=="varchar(1024)":
+        return False
+    else: raise ValueError("Not supported type")
+    
 def startFunction(initialWindow, startButton: Button):
     '''
     First Function Ran.
@@ -133,7 +150,8 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
             Destroys the new elements, and recalls the dbConnectionMenu function
             '''
 
-            if name.isalnum() == False or name[-1] == " ":
+            
+            if notValidIdentifier(name):
                 messagebox.showerror("Invalid Database Name", "Database name can only contain letters and numbers")
                 initialWindow.bell()
                 return 0
@@ -210,8 +228,7 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
         nonlocal connection, selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
         connection.close()
-        connection = mysql.connector.connect(host=host, port=int(port), user=username, password=password, database=db['text'])
-        
+        dbName = db['text']
         selectorCanvas.destroy()
         selectorScrollbar.destroy()
         buttonFrame.destroy()
@@ -219,7 +236,7 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
         deleteDbButton.destroy()
         for buttons in allButtons: buttons.destroy()
 
-        queryMenu(initialWindow, subHeading, connection, host, port, username, password, db)
+        queryMenu(initialWindow, subHeading, host, port, username, password, dbName)
 
         
 
@@ -260,7 +277,7 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
     deleteDbButton.place(anchor = E, relx=0.75, rely= 0.85)
 
 
-def queryMenu(initialWindow, subHeading, connection, host, port, username, password, db):
+def queryMenu(initialWindow, subHeading, host, port, username, password, db):
     subHeading.config(text="Select SQL Query")
 
     selectorCanvas = Canvas(initialWindow)
@@ -273,7 +290,7 @@ def queryMenu(initialWindow, subHeading, connection, host, port, username, passw
     buttonFrame = Frame(selectorCanvas)
     selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
 
-    supportedQueries = {"Create Table": createTableMenu, "Insert Data": insertDataMenu, "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
+    supportedQueries = {"Create Table": lambda: createTableMenu(host, port, username, password, db), "Insert Data": insertDataMenu, "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
     i = 0
     for key,value in supportedQueries.items():
         qButton = Button(buttonFrame, text=key, borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
@@ -285,24 +302,126 @@ def queryMenu(initialWindow, subHeading, connection, host, port, username, passw
     selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
 
 
-def createTableMenu(columnData: list[str] = []):
+def createTableMenu(host, port, username, password, db,tableMenu: Tk = None, columnData: list[list[str]] = []):
+
+    connection = mysql.connector.connect(host=host, port=int(port), user=username, password=password, database=db)
+
+    def addTable():
+        nonlocal tableNameEntry, columnData, connection
+        if len(tableNameEntry.get()) == 0:
+            messagebox.showerror("Error", "Table name is required")
+            return 0
+        if notValidIdentifier(tableNameEntry.get()):
+            messagebox.showerror("Error", "Invalid Table Name")
+            return 0
+        if len(columnData) == 0:
+            messagebox.showerror("Error", "Atleast 1 Column Needed")
+            return 0
+        
+        query = f"CREATE TABLE {tableNameEntry.get()}("
+        for column in columnData:
+            if column[1][3][0] and column[1][0] == "varchar(1024)": column[1][3][1] = '`'+column[1][3][1]+'`'
+            query+= f"{column[0]} {column[1][0]} "
+            query += "NOT NULL " * (column[1][1])
+            query += "UNIQUE " * (column[1][2])
+            query += f"DEFAULT \'{column[1][3][1]}\'" * column[1][3][0]
+            query += "PRIMARY KEY" * (column[1][4])
+            query += ","
+        
+        query = query[:-1] + ");"
+        print(query)
+        cursor = connection.cursor(buffered=True)
+        cursor.execute(query)
+        cursor.close()
+        connection.commit()
+        pyperclip.copy(query)
+
+        messagebox.showinfo("Table Created", "Table Created Successfully")
+        return 0
 
     def addColumnMenu():
+        def columnAdd():
+            nonlocal tableMenu, columnData, temporaryElements, tableNameEntry, nullToggle, uniqueToggle, defToggle, defEntry, dataTypeComboBox, primaryToggle
+            
+            if uniqueToggle.get() == 1 and defToggle.get() == 1:
+                messagebox.showerror("Error", "Column Cannot Be Unique and Have Default Value")
+                return 0
+
+            if len(tableNameEntry.get()) == 0:
+                messagebox.showerror("Error", "Column Name is required")
+                return 0
+            for columns in columnData:
+                if columns[0] == tableNameEntry.get():
+                    messagebox.showerror("Error", "Column Name Should Be Unique")
+                    return 0
+            if notValidIdentifier(tableNameEntry.get()):
+                messagebox.showerror("Error", "Column Name Invalid")
+                return 0
+            if defToggle.get() and notTypeValid(dataTypeComboBox.get(), defEntry.get()):
+                messagebox.showerror("Error", "Default value invalid")
+                return 0
+            columnData.append([tableNameEntry.get(), [dataTypeComboBox.get(), nullToggle.get(), uniqueToggle.get(), [defToggle.get(), defEntry.get()], primaryToggle.get()]])
+            
+            for element in temporaryElements: element.destroy()
+            createTableMenu(connection._host, connection._port, connection._user, connection._password, connection._database, tableMenu, columnData)
+        
+
         nonlocal tableMenu, tableNameLabel, tableNameEntry, displayTable, submitButton, addColButton
 
         displayTable.destroy()
         submitButton.destroy()
 
+        temporaryElements = [tableNameLabel, tableNameEntry]
+
         tableNameLabel.config(text="Column Name:")
-        dVal = IntVar(tableMenu)
-        dCheck = ttk.Checkbutton(tableMenu, variable = dVal)
-        dCheck.place(relx = 0.5, rely= 0.4, anchor = E)
 
-        addColButton.config(command=lambda: print(dVal.get()))
+        nullToggle = IntVar(tableMenu)
+        nullCheck = ttk.Checkbutton(tableMenu, variable = nullToggle)
+        nullCheck.place(relx = 0.1, rely= 0.3, anchor = E)
+        nullLabel = Label(tableMenu, text="No Null Values", font = ('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        nullLabel.place(relx=0.1, rely=0.3, anchor=W)
+        temporaryElements.extend([nullCheck, nullLabel])
 
-    tableMenu = Tk()
-    tableMenu.title("Create Table")
-    tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+        uniqueToggle = IntVar(tableMenu)
+        uniqueCheck = ttk.Checkbutton(tableMenu, variable = uniqueToggle)
+        uniqueCheck.place(relx = 0.1, rely= 0.4, anchor = E)
+        uniqueLabel = Label(tableMenu, text="Unique Values Only", font = ('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        uniqueLabel.place(relx=0.1, rely=0.4, anchor=W)
+        temporaryElements.extend([uniqueCheck, uniqueLabel])
+
+        defToggle = IntVar(tableMenu)
+        defCheck = ttk.Checkbutton(tableMenu, variable = defToggle)
+        defCheck.place(relx = 0.1, rely= 0.5, anchor = E)
+        defEntry = Entry(tableMenu, font = ('Arial', round(screenHeight*screenWidth*0.000009113)))
+        defEntry.insert(0, "Default Value (Optional)")
+        defEntry.place(relx=0.1, rely=0.5, anchor=W)
+        temporaryElements.extend([defCheck, defEntry])
+
+        primaryToggle = IntVar(tableMenu)
+        primaryCheck = ttk.Checkbutton(tableMenu, variable = primaryToggle)
+        primaryCheck.place(relx = 0.1, rely= 0.6, anchor = E)
+        primaryLabel = Label(tableMenu, text="Is Primary Key", font = ('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        primaryLabel.place(relx=0.1, rely=0.6, anchor=W)
+        temporaryElements.extend([primaryCheck, primaryLabel])
+
+        dataTypeLabel = Label(tableMenu, text="Data Type:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        dataTypeLabel.place(anchor = E, relx=0.5, rely=0.7)
+        dataTypeComboBox =  ttk.Combobox(tableMenu, values = ("int","decimal","date","varchar(1024)","char"), state="readonly")
+        dataTypeComboBox.place(anchor= W, relx=0.5, rely= 0.7)
+        dataTypeComboBox.current(0)
+        temporaryElements.extend([dataTypeLabel, dataTypeComboBox])
+
+        addColButton.place_forget()
+        addColButton.place(anchor=CENTER, relx=0.5, rely= 0.85)
+        addColButton.config(command=columnAdd)
+        temporaryElements.append(addColButton)
+
+    
+    if tableMenu is None:
+        tableMenu = Tk()
+        tableMenu.title("Create Table")
+        tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+        tableMenu.protocol("WM_DELETE_WINDOW", lambda: [connection.close(), tableMenu.destroy()])
 
     tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
     tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
@@ -319,17 +438,22 @@ def createTableMenu(columnData: list[str] = []):
     displayTable.heading("Attributes", text="Attributes", anchor = W)        
     displayTable.place(anchor=N, relx = 0.5, rely = 0.3, width = screenWidth/2.5)
 
+    print(columnData)
     for i in range(len(columnData)):
-        displayTable.insert(parent="", index='end', iid = i, text=i, values = (columnData[i][0], columnData[i][1]))
+        
+        attributeList = columnData[i][1]
+        attributeStr = f"DataType: {attributeList[0]}"
+        if attributeList[1] == 1: attributeStr += ", No Null Values"
+        if attributeList[2] == 1: attributeStr += ", Unique Values Only"
+        if attributeList[3][0] == 1: attributeStr += f", Default Value {attributeList[3][1]}"
+        if attributeList[4] == 1: attributeStr += ", Primary Key"
+        displayTable.insert(parent="", index='end', iid = i, text=i, values = (columnData[i][0], attributeStr))
 
-    submitButton = Button(tableMenu, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=lambda: print("Submitted"))
+    submitButton = Button(tableMenu, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=addTable)
     submitButton.place(anchor=E, relx=0.8, rely= 0.85)
 
     addColButton = Button(tableMenu, text="Add Column", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=addColumnMenu)
     addColButton.place(anchor=W, relx=0.2, rely= 0.85)
-
-
-    tableMenu.mainloop()
 
 
 
