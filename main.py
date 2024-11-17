@@ -90,14 +90,8 @@ def startFunction(initialWindow, startButton: Button):
         passwordEntry.insert(0,'')
 
     def submitDetails():
-
-        host = hostEntry.get()
-        port = portEntry.get()
-        username = usernameEntry.get()
-        password = passwordEntry.get()
-
         try:
-            connection = mysql.connector.connect(host=host, port=int(port), user=username, password=password)
+            connection = mysql.connector.connect(host=hostEntry.get(), port=int(portEntry.get()), user=usernameEntry.get(), password=passwordEntry.get())
         except:
             errorLabel.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.8)
             initialWindow.bell()
@@ -119,7 +113,7 @@ def startFunction(initialWindow, startButton: Button):
         
         
         
-        dbConnectionMenu(initialWindow, subHeading, connection, host, port, username, password)
+        dbConnectionMenu(initialWindow, subHeading, connection)
                      
 
     submitButton = Button(initialWindow, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command = submitDetails)
@@ -128,7 +122,7 @@ def startFunction(initialWindow, startButton: Button):
     resetButton.place(anchor = W, relx=0.51, rely= 0.7)
 
 
-def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username, password):
+def dbConnectionMenu(initialWindow, subHeading, connection):
     '''
     Database connection menu
     '''
@@ -165,7 +159,7 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
             nameEntry.destroy()
             submitButton.destroy()
-            dbConnectionMenu(initialWindow, subHeading, connection, host, port, username, password)
+            dbConnectionMenu(initialWindow, subHeading, connection)
 
         nonlocal selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
 
@@ -228,7 +222,7 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
 
         nonlocal connection, selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
         connection.close()
-        dbName = db['text']
+        connection._database = db['text']
         selectorCanvas.destroy()
         selectorScrollbar.destroy()
         buttonFrame.destroy()
@@ -236,7 +230,7 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
         deleteDbButton.destroy()
         for buttons in allButtons: buttons.destroy()
 
-        queryMenu(initialWindow, subHeading, host, port, username, password, dbName)
+        queryMenu(initialWindow, subHeading, connection)
 
         
 
@@ -277,7 +271,7 @@ def dbConnectionMenu(initialWindow, subHeading, connection, host, port, username
     deleteDbButton.place(anchor = E, relx=0.75, rely= 0.85)
 
 
-def queryMenu(initialWindow, subHeading, host, port, username, password, db):
+def queryMenu(initialWindow, subHeading, connection):
     subHeading.config(text="Select SQL Query")
 
     selectorCanvas = Canvas(initialWindow)
@@ -290,7 +284,7 @@ def queryMenu(initialWindow, subHeading, host, port, username, password, db):
     buttonFrame = Frame(selectorCanvas)
     selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
 
-    supportedQueries = {"Create Table": lambda: createTableMenu(host, port, username, password, db), "Insert Data": insertDataMenu, "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
+    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Insert Data": insertDataMenu, "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
     i = 0
     for key,value in supportedQueries.items():
         qButton = Button(buttonFrame, text=key, borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
@@ -302,9 +296,9 @@ def queryMenu(initialWindow, subHeading, host, port, username, password, db):
     selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
 
 
-def createTableMenu(host, port, username, password, db,tableMenu: Tk = None, columnData: list[list[str]] = []):
+def createTableMenu(connection,tableMenu: Tk = None, columnData: list[list[str]] = []):
 
-    connection = mysql.connector.connect(host=host, port=int(port), user=username, password=password, database=db)
+    connection = mysql.connector.connect(host=connection._host, port=connection._port, user=connection._user, password=connection._password, database=connection._database)
 
     def addTable():
         nonlocal tableNameEntry, columnData, connection
@@ -363,7 +357,7 @@ def createTableMenu(host, port, username, password, db,tableMenu: Tk = None, col
             columnData.append([tableNameEntry.get(), [dataTypeComboBox.get(), nullToggle.get(), uniqueToggle.get(), [defToggle.get(), defEntry.get()], primaryToggle.get()]])
             
             for element in temporaryElements: element.destroy()
-            createTableMenu(connection._host, connection._port, connection._user, connection._password, connection._database, tableMenu, columnData)
+            createTableMenu(connection, tableMenu, columnData)
         
 
         nonlocal tableMenu, tableNameLabel, tableNameEntry, displayTable, submitButton, addColButton
