@@ -270,7 +270,7 @@ def queryMenu(initialWindow, subHeading, connection):
     buttonFrame = Frame(selectorCanvas)
     selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
 
-    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Insert Data": insertDataMenu, "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
+    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Describe Table": lambda: describeTableMenu(connection), "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
     i = 0
     for key,value in supportedQueries.items():
         #Creating and adding the buttons to the frame
@@ -297,7 +297,7 @@ def createTableMenu(connection,tableMenu: Tk = None, columnData: list[list[str]]
         - If table name is empty
         - If table name is invalid
         - If table contains no columns
-
+        - If table name already exists
         On success, closes and reopens the createtablemenu
         '''
 
@@ -311,8 +311,15 @@ def createTableMenu(connection,tableMenu: Tk = None, columnData: list[list[str]]
             return 0
         if len(columnData) == 0:
             messagebox.showerror("Error", "Atleast 1 Column Needed")
-            return 0
-        
+            return 0        
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("SHOW TABLES;")
+        for table in cursor:
+            if table[0] == tableNameEntry.get():
+                messagebox.showerror("Error", "Table Name Already Exists")
+                return 0
+        cursor.close()
+
         query = f"CREATE TABLE {tableNameEntry.get()}("
         for column in columnData:
             if column[1][3][0] and column[1][0] == "varchar(255)": column[1][3][1] = '`'+column[1][3][1]+'`'
@@ -478,9 +485,85 @@ def createTableMenu(connection,tableMenu: Tk = None, columnData: list[list[str]]
     addColButton = Button(tableMenu, text="Add Column", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=addColumnMenu)
     addColButton.place(anchor=W, relx=0.2, rely= 0.85)
 
+def describeTableMenu(connection):
+    connection = mysql.connector.connect(host=connection._host, port=connection._port, user=connection._user, password=connection._password, database=connection._database)
+
+    cursor = connection.cursor(buffered=True)
+    query = "SHOW TABLES;"
+    cursor.execute(query)
+    pyperclip.copy(query)
+
+    tables = tuple(i[0] for i in cursor.fetchall())
+    if len(tables) == 0:
+        messagebox.showerror("Error", "No Tables Found")
+        return 0
+    
+    cursor.close()
+
+    tableMenu = Tk()
+    tableMenu.title("Describe Table")
+    tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+    tableMenu.protocol("WM_DELETE_WINDOW", lambda: [connection.close(), tableMenu.destroy()])
+
+    tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+    tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
+    tableNameCombobox =  ttk.Combobox(tableMenu, values = tables, state="readonly")
+    tableNameCombobox.current(0)    
+    tableNameCombobox.place(anchor= E, relx=0.9, rely= 0.15)
+
+    displayTable = ttk.Treeview(tableMenu)
+    displayTable['columns'] = ('Field', 'Type', 'Key', 'Default', 'Extra')
+
+    scrollbarX = Scrollbar(tableMenu, orient=HORIZONTAL, command=displayTable.xview)
+    scrollbarX.place(anchor=N, relx=0.5, rely=0.95, width=screenWidth/2.5)
+    displayTable.configure(xscrollcommand=scrollbarX.set)
+    scrollbarX.configure(command=displayTable.xview)
+
+    scrollbarY = Scrollbar(tableMenu, orient=VERTICAL, command=displayTable.yview)
+    scrollbarY.place(anchor=W, relx=0.9, rely=0.5, height=(screenHeight/2)*0.4)
+    displayTable.configure(yscrollcommand=scrollbarY.set)
+    scrollbarY.configure(command=displayTable.yview)
+
+
+    displayTable.column("#0", minwidth=10)
+    displayTable.column("Field", minwidth = 10)
+    displayTable.column("Type", minwidth = 10)
+    displayTable.column("Key", minwidth = 10)
+    displayTable.column("Default", minwidth = 10)
+    displayTable.column("Extra", minwidth = 10)
+
+    displayTable.heading("#0", text="S. No.", anchor = W)        
+    displayTable.heading("Field", text="Field", anchor = W)
+    displayTable.heading("Type", text="Type", anchor = W)
+    displayTable.heading("Key", text="Key", anchor = W)
+    displayTable.heading("Default", text="Default", anchor = W)
+    displayTable.heading("Extra", text="Extra", anchor = W)
+
+    displayTable.place(anchor=N, relx = 0.5, rely = 0.3, width = screenWidth/2.5)
+
+    def fetchData():
+
+        for data in displayTable.get_children(): displayTable.delete(data)
+
+        cursor = connection.cursor(buffered=True)
+        query = f"DESCRIBE {tableNameCombobox.get()};"
+        cursor.execute(query)
+        pyperclip.copy(query)
+        result = cursor.fetchall()
+        cursor.close()
+
+        for i in range(len(result)):
+            displayTable.insert(parent="", index='end', iid = i, text=i, values = (result[i][0], result[i][1], result[i][3], result[i][4], result[i][5]))
+
+
+    submitButton = Button(tableMenu, text="Fetch Data", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=fetchData)
+    submitButton.place(anchor=CENTER, relx=0.5, rely= 0.85)
+
+
+    
 
 #just temporary
-insertDataMenu = lambda: print("Insert Data")
+
 selectDataMenu = lambda: print("Select Data")
 updateDataMenu = lambda: print("Update Data")
 deleteDataMenu = lambda: print("Delete Data")
