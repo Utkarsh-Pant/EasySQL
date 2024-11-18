@@ -1,1193 +1,591 @@
-import pyperclip
+import sys, os, re, datetime
+
 from tkinter import *
-import re
-from PIL import Image, ImageTk
-import os
-import sys
-import mysql.connector
-import datetime
-
-# I want to remove these three imports, but when I do my IDE shows many errors, so its annoying in development, will remove them later 
-from tkinter import messagebox
-from tkinter import ttk
 from tkinter import font
+from tkinter import ttk
+from tkinter import messagebox
 
-window = Tk()
+import mysql.connector
+import pyperclip
+from PIL import ImageTk
 
-'''
-ROOT VARIABLES
-'''
 
-screenHeight = window.winfo_screenheight()
-screenWidth = window.winfo_screenwidth()
-if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    filePath = sys._MEIPASS
-else: filePath = os.path.dirname(__file__)
-details = ['localhost',3306, 'root','',None]
-activeWin = None #keeps track of current active window
+initialWindow = Tk()
+initialWindow.title("EasySQL")
+
 
 
 '''
-MAIN FUNCTIONS
+Root Variables
 '''
-def is_number_regex(s):
-    """ Returns True is string is a number[including floats]. """
-    if re.fullmatch(r"\d+", s) and re.fullmatch(r"\d+\.\d+", s) is None:
+
+screenHeight = initialWindow.winfo_screenheight()
+screenWidth = initialWindow.winfo_screenwidth()
+
+
+def notValidIdentifier(text):
+    return text[-1] == " " or re.fullmatch(r"[0-9a-zA-Z$_\s.]+", text) == None
+
+def notTypeValid(type, text):
+    if type=="int":
+        return re.fullmatch(r"[0-9]+", text) == None
+    elif type=="float":
+        return re.fullmatch(r"\d+", text) == None and re.fullmatch(r"\d+\.\d+", text) == None
+    elif type=="date":
+        try: datetime.date.fromisoformat(text)
+        except ValueError: return True
         return False
-    return True
-
-'''
-LOGIN WINDOW
-'''
-logOpened = False #Where login window is opened or not
-def start():
-    global logOpened
-    global mLogWindow
-
-    if logOpened == True: 
-        mLogWindow.bell()
-        return 0
-
-    loginWindow = Tk()
-
-    mLogWindow = loginWindow
-    logOpened = True
-
-    loginWindow.protocol("WM_DELETE_WINDOW", lambda: [window.destroy(), loginWindow.destroy()] if messagebox.askokcancel("Quit", "Do you want to quit?") else None)
-    loginWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-    mainText = Label(loginWindow, text = "Enter SQL details")
-    mainText.place(anchor=S, relx=0.5, rely=0.2)
-
-
-    lHostLabel = Label(loginWindow, text="Localhost: ")
-    lHostLabel.place(anchor=W, relx=0.1, rely=0.3)
-    lHost = Entry(loginWindow, borderwidth=5, width = round((screenWidth/4) * 0.0625))
-    lHost.insert(0, 'localhost')
-    lHost.place(anchor=W, relx=0.3, rely = 0.3)
-
-    lPortLabel = Label(loginWindow, text="Port: ")
-    lPortLabel.place(anchor=W, relx=0.1, rely=0.4)
-    lPort = Entry(loginWindow, borderwidth=5, width = round((screenWidth/4) * 0.0625))
-    lPort.insert(0, '3306')
-    lPort.place(anchor=W, relx=0.3, rely = 0.4)
-
-    usernameLabel = Label(loginWindow, text="Username: ")
-    usernameLabel.place(anchor=W, relx = 0.1, rely=0.5)
-    username = Entry(loginWindow, borderwidth=5, width = round((screenWidth/4) * 0.0625))
-    username.insert(0,'root')
-    username.place(anchor=W, relx = 0.3, rely=0.5)
-
-    pwdLabel = Label(loginWindow, text="Password: ")
-    pwdLabel.place(anchor=W, relx = 0.1, rely=0.6)
-    pwd = Entry(loginWindow, show = "*", borderwidth=5, width = round((screenWidth/4) * 0.0625))
-    pwd.insert(0, '')
-    pwd.place(anchor=W, relx = 0.3, rely=0.6)
-
-    def resetDef():
-        lHost.delete(0,END)
-        lPort.delete(0,END)
-        username.delete(0,END)
-        pwd.delete(0,END)
-
-        
-        lHost.insert(0,'localhost')
-        lPort.insert(0,'3306')
-        username.insert(0,'root')
-        pwd.insert(0,'')
-
-    def loginSubmit():
-        host = lHost.get()
-        port = lPort.get()
-        name = username.get()
-        password = pwd.get()
-
-
-        try:
-            db = mysql.connector.connect(
-                host = host,
-                port = int(port),
-                username = name,
-                password = password
-            )
-
-
-        except Exception as e: 
-            print(e)
-            messagebox.showerror("INVALID DATA", "THE DATA ENTERED IS NOT WORKING. PLEASE MAKE SURE THE SQL SERVER IS INSTALLED PROPERLY AND ALL THE INPUTS ARE CORRECT")
-            return False
-
-        else:
-            global details
-            details = [host, port, name, password, None]
-            startDBCon(db, host, name, password)
-            return db
-
-    submitButton = Button(loginWindow, text = "Submit", command = loginSubmit)
-    defButton = Button(loginWindow, text="Reset to default", command = resetDef)
-    submitButton.place(anchor=E, relx = 0.5, rely = 0.7)
-    defButton.place(anchor=W, relx=0.5, rely = 0.7)
-
-    loginWindow.mainloop()
+    elif type=="char":
+        return len(text) != 0
+    elif type=="varchar(255)":
+        return False
+    else: raise ValueError("Not supported type")
     
+def startFunction(initialWindow, startButton: Button):
+    '''
+    First Function Ran.
+    Changes the main menu to the login menu
+    delWidgets: Widgets in previous menu to be deleted
+    '''
+    startButton.destroy()
 
-'''
-DATABASE SELECTION
-'''
+    subHeading=Label(initialWindow, text="Enter SQL connection details", font=('Terminal', round(screenHeight*screenWidth*0.000018113)))
+    subHeading.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.2)
 
-def startDBCon(db, host, username, password):
+    dataWidgets = ["Host", "Port", "Username", "Password"]
+    defaultValues = ['localhost', '3306', 'root', '']
 
-    def newDB():
-        dbWindow.destroy()
-        createNewDB(db, host, username, password)
+    for i in range(len(dataWidgets)):
+        # Create labels and input entries with default values like , Host: [localhost]
 
-    def conDB(db, name):
-        try:
-            db.close()
-            db = mysql.connector.connect(
-                username = username,
-                host = host,
-                password = password,
-                database = name
-            )
-            global details
-            details[4] = name
-        except Exception as e:
-            print(e)
-            messagebox.showerror("ERROR!", f"UNKOWN ERROR OCCURED! ERR CODE: DBC08\n{e}")
-            return False
+        dataLabel = Label(initialWindow, text=dataWidgets[i], font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
+        dataLabel.place(anchor=E, relx=0.5, rely=0.3 + i*0.1)
+        dataEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
+        dataEntry.insert(0, defaultValues[i])
+        dataEntry.place(anchor=W, relx=0.5, rely = 0.3 + i*0.1)
         
-        else:
-            dbWindow.destroy()
-            startQuery(db, username, host, password, name)
-            return db
+        # Overwrite the label and entry to dataWidgets
+        dataWidgets[i] = [dataLabel, dataEntry]
 
-    def delModeToggle():
-        nonlocal delMode
-        if delMode:
-            for i in allButtons: i['bg'] = "white"
-        else: 
-            for i in allButtons: i['bg'] = "red"
-        delMode = not delMode
+    dataWidgets[-1][-1].config(show='*')  #Change password entry display to show stars
+    
+    errorLabel = Label(initialWindow, text="Invalid Connection Details", fg='red', font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD))
 
-    def delDB(bton):
-        print(f"DELETED: {bton['text']}")
-        a = db.cursor(buffered=True)
-        query = f"DROP DATABASE {bton['text']};"
-        a.execute(query)
-        a.close()
-        try: pyperclip.copy(f"DELETED: {bton['text']}")
-        except: pass
-        allButtons.remove(bton)
-        bton.pack_forget()
-        bton.destroy()
-    try:
-        window.destroy()
-        mLogWindow.destroy()
-    except: pass
+    def resetDetails(): #self-explanatory :/
+        for i in dataWidgets:
+            i[1][0].delete(0, END)
+            i[1][0].insert(0, defaultValues[dataWidgets.index(i)])
+
+    def submitDetails():
+
+        try:
+            connection = mysql.connector.connect(host=dataWidgets[0][1].get(), port=int(dataWidgets[1][1].get()), user=dataWidgets[2][1].get(), password=dataWidgets[3][1].get())
+        except:
+            errorLabel.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.8)
+            initialWindow.bell()
+            return 0
+
+
+        #Destroy all widgets of the current window before moving onto the next. SubHeading is not destroyed as it is used in the next window
+        for i in dataWidgets:
+            i[0].destroy()
+            i[1].destroy()
+
+        submitButton.destroy()
+        resetButton.destroy()
+        errorLabel.destroy()                
+        
+        dbConnectionMenu(initialWindow, subHeading, connection)
+                     
+
+    submitButton = Button(initialWindow, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command = submitDetails)
+    submitButton.place(anchor = E, relx=0.49, rely= 0.7)
+    resetButton = Button(initialWindow, text="Reset Details", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command = resetDetails)
+    resetButton.place(anchor = W, relx=0.51, rely= 0.7)
+
+
+def dbConnectionMenu(initialWindow, subHeading, connection):
+    '''
+    Database connection menu
+    '''
 
     delMode = False
-    dbWindow = Tk()
-    dbWindow.title('EasySQL')
-    dbWindow.geometry(f'{screenWidth}x{screenHeight}+0+0')
-    lbl = Label(dbWindow, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), font.BOLD))
-    lbl.place(anchor = CENTER, relx = 0.5, rely=0.0463)
 
-    lbl2 = Label(dbWindow, text="SELECT A DATABASE", fg = 'green', font = ('Helvetica', round(screenHeight*screenWidth*0.00000803766), UNDERLINE),borderwidth=1)
-    lbl2.place(anchor = CENTER, relx = 0.5, rely= 0.15)
+    def createDb():
 
-    dbParentFrame = LabelFrame(dbWindow)
-    dbParentFrame.place(anchor=N, relx = 0.5, rely= 0.2, relheight = 0.5, relwidth= 0.5)
+        '''
+        Function called when create new database button is clicked
+        Temporarily changes menu to a create database menu
+        Then creates the database and changes back to the database connection menu
+        '''
 
-    frameCanvas = Canvas(dbParentFrame, background="white")
-    frameCanvas.place(anchor = CENTER, relx= 0.5, rely= 0.5, relheight = 1, relwidth = 1)
+        def createDbSubmit(name):
+            '''
+            Actually creates the database after submit button is pressed
+            Validates the input and creates the database
+            Destroys the new elements, and recalls the dbConnectionMenu function
+            '''
 
-    frameScrollbar = ttk.Scrollbar(dbParentFrame, orient="vertical", command=frameCanvas.yview)
-    frameScrollbar.place(anchor = E, rely=0.5, relx=1, relheight = 1)
+            
+            if notValidIdentifier(name):
+                messagebox.showerror("Invalid Database Name", "Database name can only contain letters and numbers")
+                initialWindow.bell()
+                return 0
 
-    frameCanvas.configure(yscrollcommand=frameScrollbar.set)
-    frameCanvas.bind("<Configure>", lambda e: frameCanvas.configure(scrollregion = frameCanvas.bbox('all')))
+            cursor = connection.cursor(buffered=True)
+            query = f"CREATE DATABASE `{name}`;"
+            cursor.execute(query)
+            cursor.close()
+            connection.commit()
+            pyperclip.copy(query)
 
-    dbFrame = Frame(frameCanvas, background="white")
-    frameCanvas.create_window((0,0), window=dbFrame, anchor = NW)
+            nameEntry.destroy()
+            submitButton.destroy()
+            dbConnectionMenu(initialWindow, subHeading, connection)
+
+        nonlocal selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
+
+        selectorCanvas.destroy()
+        selectorScrollbar.destroy()
+        buttonFrame.destroy()
+        createDbButton.destroy()
+        deleteDbButton.destroy()
+
+        for buttons in allButtons: buttons.destroy()
+
+        subHeading.config(text="Enter new database name")
+
+        nameEntry = Entry(initialWindow, width = round((screenWidth/4) * 0.0625), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
+        nameEntry.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.5)
+
+        submitButton = Button(initialWindow, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command = lambda: createDbSubmit(nameEntry.get()))
+        submitButton.place(anchor=CENTER, x=round(screenWidth/2), y=screenHeight*0.6)
+
+    def deleteDb(db):
+        '''
+        Function called when a database button is clicked in delete mode
+        Drops the database and deletes the button from the menu
+        '''
+
+
+        nonlocal allButtons
+
+        cursor = connection.cursor(buffered=True)
+        query = f"DROP DATABASE `{db['text']}`;"
+        cursor.execute(query)
+        cursor.close()
+        connection.commit()
+        pyperclip.copy(query)
+
+        allButtons.remove(db)
+        db.pack_forget()
+        db.destroy()
+
+        pass
+
+    def delModeToggle(allButtons):
+        '''
+        Method called when swithcing between delete mode and normal mode
+        Changes color of buttons and swaps value of delMode
+        '''
+        nonlocal delMode #Without nonlocal creates a local scope delMode ;0
+        delMode = not delMode
+        if delMode == True: 
+            for dbButton in allButtons: dbButton['fg']="red"                
+        else:
+            for dbButton in allButtons: dbButton['fg'] = "black"
+                
+
+    def connectDB(db):
+
+        '''
+        Function called when a database button is clicked.
+        Makes the connection to the database and changes the menu to the query menu; deleting current elements
+        '''
+
+        nonlocal connection, selectorCanvas, selectorScrollbar, buttonFrame, createDbButton, deleteDbButton, allButtons
+        connection.close()
+        connection._database = db['text']
+        selectorCanvas.destroy()
+        selectorScrollbar.destroy()
+        buttonFrame.destroy()
+        createDbButton.destroy()
+        deleteDbButton.destroy()
+        for buttons in allButtons: buttons.destroy()
+
+        queryMenu(initialWindow, subHeading, connection)
+
+        
+
+
+    subHeading.config(text="Choose Database")
+
+
+    #Creating A scrollable Frame/Canvas which will hold the database buttons
+    selectorCanvas = Canvas(initialWindow)
+    selectorCanvas.place(anchor=N, relx=0.5, rely=0.3, relwidth=0.5, relheight=0.5)
+    selectorScrollbar = Scrollbar(initialWindow, orient="vertical", command=selectorCanvas.yview)
+    selectorScrollbar.place(anchor=W, relx=0.75, rely=0.55, relheight=0.5)
+    selectorCanvas.configure(yscrollcommand=selectorScrollbar.set)
+
+    buttonFrame = Frame(selectorCanvas)
+    selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
+
     
-    cursor = db.cursor(buffered=True)
-    cursor.execute("SHOW DATABASES;")
+    cursor = connection.cursor(buffered=True)
+    query = "SHOW DATABASES;"
+    cursor.execute(query)
+    pyperclip.copy(query)
 
     allButtons = []
-    for i in cursor:
-        t = Button(dbFrame, text=i[0], borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W)
-        t.configure(command= lambda n=i[0], b=t: conDB(db, n) if delMode == False else delDB(b))
-        t.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-        t.pack(fill="both", expand = YES)
-        allButtons.append(t)
+    for db in cursor:
+        #Adding the buttons to the frame
+        dbButton = Button(buttonFrame, text=db[0], borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
+        dbButton.configure(command= lambda dbButton = dbButton: connectDB(dbButton) if delMode == False else deleteDb(dbButton))
+        dbButton.grid(row=len(allButtons), column=0, pady=0.1)
+        allButtons.append(dbButton)
     
-    cursor.close()
-     
-    delButton = Button(dbWindow, text="Delete DB", font = ("Helvetica",30,NORMAL), command = delModeToggle)
-    delButton.place(anchor=CENTER, relx=0.5, rely=0.9, relheight=0.08, relwidth=0.15)
-
-    createButton = Button(dbWindow, text="Create New", font = ("Helvetica", 30, NORMAL), command = newDB)
-    createButton.place(anchor=CENTER, relx=0.5, rely = 0.8, relheight=0.08, relwidth = 0.15)    
-
-    dbWindow.mainloop()
-
-def createNewDB(db, host, username, password):
-    createWindow = Tk()
-    def end(db):
-        createWindow.destroy()
-        db.close()
-        db = mysql.connector.connect(
-            username = username,
-            host = host,
-            password = password
-        )
-        startDBCon(db, host, username, password)
-        
-    def create_new(name):
-        a = db.cursor(buffered=True)
-        a.execute(f"CREATE DATABASE {name}")
-        try: pyperclip.copy(f"CREATE DATABASE {name}")
-        except: pass
-        a.close()
-        end(db)
-
-    createWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-    nameLabel = Label(createWindow, text="DB Name: ")
-    nameLabel.place(anchor=W, relx = 0.1, rely=0.4)
-    nameLabel = Entry(createWindow, borderwidth=5, width = round((screenWidth/4) * 0.0625))
-    nameLabel.place(anchor=W, relx = 0.3, rely=0.4)
-
-    submitButton = Button(createWindow, text = "Submit", command = lambda: create_new(nameLabel.get()) if nameLabel.get().isalnum() else messagebox.showerror("INVALID DATA", "DATABASE NAME MUST BE ALPHA-NUMERIC ONLY."))
-    submitButton.place(anchor=E, relx = 0.5, rely = 0.7)
-
-
-    createWindow.protocol("WM_DELETE_WINDOW", lambda: end(db))
-    createWindow.mainloop()
-
-'''
-    MAIN QUERY WINDOW
-'''
-
-def startQuery(db, username, host, password, dbName):
-
-    tables = []
-    activeWin = None
-
-    # Different Queries
-    def createTable():
-
-        global activeWin
-        columns = {}
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            nonlocal db
-            db.close()
-            db = mysql.connector.connect(
-                username = username,
-                host = host,
-                password = password,
-                db = dbName
-            )
-            cursor = db.cursor(buffered=True)
-            cursor.execute('SHOW TABLES;')
-            tables.clear()
-            for i in cursor: tables.append(i[0])
-            cursor.close()
-            global activeWin
-            activeWin = None
-            # Code By Utkarsh Pant :) https://github.com/utkarsh-pant
-            sWindow.destroy()
-        
-        def addCol():
-
-            def runQueryAddCol():
-
-                def checkDate(input_text):
-                    try: datetime.date.fromisoformat(input_text)    
-                    except ValueError: return False
-                    return True
-
-                colName = cName.get()
-                if colName in columns:
-                    messagebox.showerror("ERR!", "Column names must be unique!")
-                    return 0
-                
-                if colName.isalnum() == False:
-                    messagebox.showerror("ERR!", "Column names must be alpha-numeric")
-                    return 0
-                
-                colQuery = ""
-                attribute = ""
-                colName = cName.get()
-                if colName in columns.keys():
-                    messagebox.showerror("Column name should be unique!")
-                    return 0
-                
-                if colName.isalnum() != True:
-                    k = colName
-                    k.replace(" ", "")
-                    if k.isalnum() == False: 
-                        messagebox.showerror("Column name should be alpha numeric.")
-                        return 0
-                    else: k = "\""+k+"\""
-                dataType = dType.get()
-                colQuery = f"{colName} {dataType}"
-                attribute = f"Datatype: {dataType},"
-                if nAllow.get() == 0:
-                    colQuery += " NOT NULL"
-                    attribute += " No Null Values,"
-                if dVal.get() == 1:
-                    colQuery += " UNIQUE"
-                    attribute += " Distinct Values Only,"
-
-                if defEnabled.get() == 1:
-                    if "char" in dataType: defVal = "\"" + defEntry.get() + "\""
-                    elif dataType == "int":
-                        defVal = defEntry.get()
-                        if defVal.isnumeric() == False and defVal[1:].isnumeric() == False:
-                            messagebox.showerror("ERR", "INVALID INT VALUE")
-                            return 0
-                    elif dataType == "decimal":
-                        defVal = defEntry.get()
-                        if is_number_regex(defVal) == False and is_number_regex(defVal[1:]) == False:
-                            messagebox.showerror("ERR", "INVALID DECIMAL VALUE")
-                            return 0
-                    elif dataType == "date":
-                        defVal = defEntry.get()
-                        if checkDate(defVal) == False:
-                            messagebox.showerror("ERR", "INVALID date VALUE")
-                            return 0         
-                        defVal = "\"" + defVal + "\""
-                    colQuery += f" DEFAULT {defVal}"
-                    attribute += f" DEFAULT VALUE: {defVal},"   
-
-                if pKey.get() == 1:
-                    colQuery += f" PRIMARY KEY"
-                    attribute += " PRIMARY KEY"
-
-                if (pKey.get() == 1 or dVal.get() == 1) and defEnabled.get() == 1:
-                    messagebox.showerror("ERR!", "DEFAULT AND UNIQUE CANNOT WORK TOGETHER!")
-                    return 0
-
-                columns[colName] = colQuery
-                displayTable.insert(parent="", index='end', iid = len(columns), text=len(columns), values = (colName, attribute))
-
-                
-
-            miniWindow = Tk()
-            miniWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-            lbl1 = Label(miniWindow, text="Column Name: ")
-            lbl1.place(relx = 0.5, rely = 0.1, anchor = E)
-
-            cName = Entry(miniWindow)
-            cName.place(relx = 0.5, rely= 0.1, anchor = W)
-
-            lbl2 = Label(miniWindow, text="Datatype: ")
-            lbl2.place(relx = 0.5, rely = 0.2, anchor = E)
-
-            dType = ttk.Combobox(miniWindow, values = ("int","decimal","date","varchar","char"), state="readonly")
-            dType.place(relx = 0.5, rely= 0.2, anchor = W)
-            dType.current(0)
-
-            nAllow = IntVar(miniWindow)
-            nCheck = ttk.Checkbutton(miniWindow, variable = nAllow)
-            nCheck.place(relx = 0.2, rely= 0.4, anchor = E)
-
-            lbl3 = Label(miniWindow, text=" Null Allowed")
-            lbl3.place(relx=0.2, rely=0.4, anchor = W)
-
-            dVal = IntVar(miniWindow)
-            dCheck = ttk.Checkbutton(miniWindow, variable = dVal)
-            dCheck.place(relx = 0.5, rely= 0.4, anchor = E)
-
-            lbl4 = Label(miniWindow, text=" Unique Values")
-            lbl4.place(relx=0.5, rely=0.4, anchor = W)
-
-            defEnabled = IntVar(miniWindow)
-            defCheck = ttk.Checkbutton(miniWindow, variable = defEnabled)
-            defCheck.place(relx=0.2, rely=0.5, anchor=E)
-
-            lbl5 = Label(miniWindow, text = "Default Value:")
-            lbl5.place(relx=0.5, rely=0.5, anchor=E )
-
-            defEntry = Entry(miniWindow)
-            defEntry.place(relx=0.5, rely=0.5, anchor=W)
-
-            pKey = IntVar(miniWindow)
-            pCheck = ttk.Checkbutton(miniWindow, variable = pKey)
-            pCheck.place(relx = 0.2, rely= 0.6, anchor = E)
-
-            lbl6 = Label(miniWindow, text=" Primary Key")
-            lbl6.place(relx=0.2, rely=0.6, anchor = W)
-
-
-            submitButton = Button(miniWindow, text="ADD COLUMN", command = runQueryAddCol)
-            submitButton.place(relx = 0.5, rely=0.9, anchor = S)
-
-            miniWindow.mainloop()
-
-        def runQuery():
-            if len(columns) == 0:
-                messagebox.showerror("ERR","Need atleast 1 column!")
-                return 0
-
-            if tName.get() in tables:
-                messagebox.showerror("ERR","Table names must be unique!")
-                return 0
-
-            query = f"CREATE TABLE {tName.get()}({','.join([f'{columns[i]}' for i in columns])});"
-            cursor = db.cursor()
-            print(query)	
-            cursor.execute(query)
-            print(query)
-            cursor.close()
-            try: pyperclip.copy(query)
-            except: pass
-            messagebox.showinfo("SUCCESS","TABLE ADDED!")
-            
-        sWindow = Tk()
-        sWindow.geometry(f'{round(screenWidth/3)}x{round(screenHeight/3)}+0+0')
-
-        lbl1 = Label(sWindow, text="Table Name: ")
-        lbl1.place(relx = 0.5, rely = 0.1, anchor = E)
-
-        tName = Entry(sWindow)
-        tName.insert(0, 'tableName')
-        tName.place(relx = 0.5, rely = 0.1, anchor = W)
-
-        addButton = Button(sWindow, text="Add Column", command = addCol)
-        addButton.place(relx = 0.5, rely = 0.2, anchor = W)
-
-        submitButton = Button(sWindow, text="Run Query", command = runQuery)
-        submitButton.place(relx = 0.5, rely= 0.2, anchor = E)
-
-        parentFrame = LabelFrame(sWindow)
-        parentFrame.place(relx = 0.5, rely = 0.3, anchor = N, relwidth = 1, relheight = 0.6)
-
-        frameCanvas = Canvas(parentFrame, background="white")
-        frameCanvas.place(anchor = CENTER, relx= 0.5, rely= 0.5, relheight = 1, relwidth = 1)
-
-        frameScrollbarY = ttk.Scrollbar(parentFrame, orient="vertical", command=frameCanvas.yview)
-        frameScrollbarY.place(anchor = E, rely=0.5, relx=1, relheight = 1)
-
-        frameScrollbarX = ttk.Scrollbar(parentFrame, orient="horizontal", command=frameCanvas.xview)
-        frameScrollbarX.place(anchor=S, rely=1, relx=0.5, relwidth=1)
-
-        frameCanvas.configure(yscrollcommand=frameScrollbarY.set)
-        frameCanvas.configure(xscrollcommand=frameScrollbarX.set)
-        frameCanvas.bind("<Configure>", lambda e: frameCanvas.configure(scrollregion = frameCanvas.bbox('all')))
-        dFrame = Frame(frameCanvas, background="white")
-        frameCanvas.create_window((0,0), window=dbFrame, anchor = NW)
-
-        displayTable = ttk.Treeview(dFrame)
-        displayTable['columns'] = ('Column', 'Attributes')
-        displayTable.column("#0", minwidth=10)
-        displayTable.column("Column", minwidth = 10)
-        displayTable.column("Attributes", minwidth = 10)
-        displayTable.heading("#0", text="S. No.", anchor = W)        
-        displayTable.heading("Column", text="Column", anchor = W)
-        displayTable.heading("Attributes", text="Attributes", anchor = W)        
-        displayTable.pack(fill=BOTH, expand=YES)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-
-    def dropTable():
-        global activeWin
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-
-        if len(tables) == 0:
-            messagebox.showerror("ERROR","No tables to delete!")
-            return 0
-
-        def killSelf():
-            nonlocal db
-            db.close()
-            db = mysql.connector.connect(
-                username = username,
-                host = host,
-                password = password,
-                db = dbName
-            )
-            cursor = db.cursor(buffered=True)
-            cursor.execute('SHOW TABLES;')
-            tables.clear()
-            for i in cursor: tables.append(i[0])
-            cursor.close()
-            global activeWin
-            activeWin = None
-            dWindow.destroy()
-
-        def runQuery():
-            q = db.cursor(buffered=True)
-            k = cBox.get()
-            q.execute(f'DROP TABLE {k};')
-            try: pyperclip.copy(f'DROP TABLE {k};')
-            except: pass
-            messagebox.showinfo(f"Successfully deleted {k}!")
-            q.close()
-
-            options = list(cBox['values'])
-            options.remove(k)
-
-            if len(options) == 0:
-                killSelf
-
-            cBox['values'] = options
-            cBox.current(0)
-
-        dWindow = Tk()
-        dWindow.title('Query - Delete Table')
-        dWindow.geometry(f'{round(screenWidth/3)}x{round(screenHeight/3)}+0+0')
-
-        lbl = Label(dWindow, text="DELETE  ")
-        lbl.place(anchor=E, rely=0.2,relx=0.5)
-
-        cBox = ttk.Combobox(dWindow, value=tables, width=10, state="readonly")
-        cBox.place(anchor=W, rely=0.2, relx= 0.5)
-        cBox.current(0)
-
-        submitButton = Button(dWindow, text='DELETE TABLE', command= runQuery)
-        submitButton.place(anchor=CENTER, rely=0.4, relx=0.5)
-
-        activeWin = dWindow
-
-        dWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        dWindow.mainloop()
-
-
-    def tableMenu(foo):
-        if len(tables) == 0:
-            messagebox.showerror("ERR","ERROR! No Tables")
-            return 0
-
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            global activeWin
-            activeWin = None
-            sWindow.destroy()
-
-        def runQuery():
-            tName = cBox.get()
-            killSelf()
-            foo(tName)
-            
-
-        sWindow = Tk()
-        sWindow.geometry()
-        sWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-        lbl = Label(sWindow, text="Select Table: ")
-        lbl.place(anchor=E, relx=0.5, rely=0.5)
-
-        cBox = ttk.Combobox(sWindow, values = tables,state="readonly")
-        cBox.current(0)
-        cBox.place(anchor=W, relx=0.5, rely=0.5)
-
-        submitButton = Button(sWindow, text='Submit', command= runQuery)
-        submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-
-    def descTable():
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-            
-        def killSelf():
-            global activeWin
-            activeWin = None
-            dWindow.destroy()
-
-        def runQuery():
-            print(tables)
-            print(cBox.get())
-            resultTable.delete(*resultTable.get_children())
-            q = db.cursor(buffered=True)
-            q.execute(f'DESCRIBE {cBox.get()};')
-            try: pyperclip.copy(f'DESCRIBE {cBox.get()};')
-            except: pass
-            c = 0
-            for i in q: 
-                val = []
-                for k in i:
-                    if type(k) == bytes: val.append(k.decode('utf-8'))
-                    else: val.append(k)
-
-                resultTable.insert(parent='', index='end', iid = c, text="", values= tuple(val))
-                c+= 1
-            q.close()
-
-        if len(tables) == 0:
-            messagebox.showerror("ERROR","NO TABLES IN THE DATABASE")
-            return 0
-
-
-        dWindow = Tk()
-        dWindow.title('Query - Describe Table')
-        dWindow.geometry(f'{round(screenWidth/3)}x{round(screenHeight/3)}+0+0')
-
-        lbl = Label(dWindow, text="DESCRIBE  ")
-        lbl.place(anchor=E, rely=0.2,relx=0.5)
-
-        cBox = ttk.Combobox(dWindow, value=tables, width=10,state="readonly")
-        cBox.place(anchor=W, rely=0.2, relx= 0.5)
-        cBox.current(0)
-
-        submitButton = Button(dWindow, text='RUN QUERY', command= runQuery)
-        submitButton.place(anchor=CENTER, rely=0.4, relx=0.5)
-
-        parentFrame = LabelFrame(dWindow)
-        parentFrame.place(anchor=N, relx = 0.5, rely = 0.5, relheight = 0.4, relwidth = 0.8)
-
-        frameCanvas = Canvas(parentFrame, background="white")
-        frameCanvas.place(anchor = CENTER, relx= 0.5, rely= 0.5, relheight = 1, relwidth = 1)
-
-        frameScrollbarY = ttk.Scrollbar(parentFrame, orient="vertical", command=frameCanvas.yview)
-        frameScrollbarY.place(anchor = E, rely=0.5, relx=1, relheight = 1)
-
-        frameScrollbarX = ttk.Scrollbar(parentFrame, orient="horizontal", command=frameCanvas.xview)
-        frameScrollbarX.place(anchor=S, rely=1, relx=0.5, relwidth=1)
-
-        frameCanvas.configure(yscrollcommand=frameScrollbarY.set)
-        frameCanvas.configure(xscrollcommand=frameScrollbarX.set)
-        frameCanvas.bind("<Configure>", lambda e: frameCanvas.configure(scrollregion = frameCanvas.bbox('all')))
-        dFrame = Frame(frameCanvas, background="white")
-        frameCanvas.create_window((0,0), window=dbFrame, anchor = NW)
-
-        resultTable = ttk.Treeview(dFrame)
-        resultTable['columns'] = ('col','dataType','null', 'key', 'def', 'ext')
-        resultTable.column("#0", width=0)
-        resultTable.column("col", minwidth=10)            
-        resultTable.column("dataType", minwidth=10)    
-        resultTable.column("null", minwidth=10)    
-        resultTable.column("key", minwidth=10)
-        resultTable.column("def", minwidth=10)
-        resultTable.column("ext", minwidth=10)
-
-        resultTable.heading("col", text="Col. Name", anchor=W)
-        resultTable.heading("dataType", text="DataType", anchor=W)        
-        resultTable.heading("null", text="Null Val. Allowed", anchor=W)        
-        resultTable.heading("key", text="Key", anchor=W)        
-        resultTable.heading("def", text="Default Value", anchor=W)        
-        resultTable.heading("ext", text="Extra", anchor=W)                
-
-        resultTable.pack(fill=BOTH,expand=YES)
-        
-        activeWin = dWindow
-        dWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        dWindow.mainloop()
-        
-    def selectTable(name):
-        if len(tables) == 0:
-            messagebox.showerror("ERR","ERROR! No Tables")
-            return 0
-
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            nonlocal db
-            db.close()
-            db = mysql.connector.connect(
-                username = username,
-                host = host,
-                password = password,
-                db = dbName
-            )
-            global activeWin
-            activeWin = None
-            sWindow.destroy()
-
-        def runQuery():
-            nonlocal wOp
-            if len(selectedButtons) == 0:
-                colQ = "*"
-            else: colQ = ",".join(selectedButtons)
-            query = "SELECT " + colQ + f" FROM {name}"
-
-            if whereEnabled.get() == 1:
-                query += " WHERE "
-                operator = wOp.get()
-                if wNot.get() == "IS NOT": query += "NOT "
-                queryVal = wEntry.get()
-                if is_number_regex(queryVal) == False and is_number_regex(queryVal[1:]) == False and queryVal[0]=="-" and queryVal != 'NULL': queryVal = "\"" + queryVal + "\""
-                if queryVal == 'NULL':
-                    if operator == '=': operator = 'IS'
-                    elif operator == '!=': operator = 'IS NOT'
-                    else:
-                        messagebox.showerror("ERR!", "Null only works with = or != operators")
-                        return 0
-
-                query += f"{wCol1.get()} {operator} {queryVal}"
-
-            if orderByEnabled.get() == 1:
-                ord_by = 'ASC'
-                if cOrderBoxOrd.get() == "Descending": ord_by = "DESC"
-                query += f" ORDER BY {cOrderBoxCol.get()} {ord_by}"
-
-            query += ";"
-            print(query)
-
-            dWindow = Tk()
-            dWindow.geometry(f'{round(screenWidth/3)}x{round(screenHeight/3)}+0+0')
-
-            parentFrame = LabelFrame(dWindow)
-            parentFrame.place(anchor=NW, relx = 0, rely = 0, relheight = 1, relwidth = 1)
-
-            frameCanvas = Canvas(parentFrame, background="white")
-            frameCanvas.place(anchor = CENTER, relx= 0.5, rely= 0.5, relheight = 1, relwidth = 1)
-
-            frameScrollbarY = ttk.Scrollbar(parentFrame, orient="vertical", command=frameCanvas.yview)
-            frameScrollbarY.place(anchor = E, rely=0.5, relx=1, relheight = 1)
-
-            frameScrollbarX = ttk.Scrollbar(parentFrame, orient="horizontal", command=frameCanvas.xview)
-            frameScrollbarX.place(anchor=S, rely=1, relx=0.5, relwidth=1)
-
-            frameCanvas.configure(yscrollcommand=frameScrollbarY.set)
-            frameCanvas.configure(xscrollcommand=frameScrollbarX.set)
-            frameCanvas.bind("<Configure>", lambda e: frameCanvas.configure(scrollregion = frameCanvas.bbox('all')))
-            dFrame = Frame(frameCanvas, background="white")
-            frameCanvas.create_window((0,0), window=dbFrame, anchor = NW)
-
-            selectedButtons_ = selectedButtons.copy()
-            if len(selectedButtons_) == 0: selectedButtons_ = columns.copy()
-            resultTable = ttk.Treeview(dFrame)
-            resultTable['columns'] = tuple(selectedButtons_)
-            for i in selectedButtons_:
-                resultTable.column(i, minwidth = 10)
-                resultTable.heading(i, text=i, anchor = W)             
-
-            cursor = db.cursor(buffered=True)
-            cursor.execute(query)
-            try: pyperclip.copy(query)
-            except: pass
-            c=0
-            for i in cursor:
-                resultTable.insert(parent='', index='end', iid = c, text="", values= tuple(i))
-                c+= 1
-
-            resultTable.pack(fill=BOTH,expand=YES)
-
-            dWindow.mainloop()
-
-        def buttonClick(button):
-            buttonName = button['text']
-            if buttonName in selectedButtons:
-                selectedButtons.remove(buttonName)
-                button['bg'] = 'white'
-                button['activebackground']
-            else:
-                selectedButtons.append(buttonName)
-                button['bg'] = 'green'
-        # Code By Utkarsh Pant :) https://github.com/utkarsh-pant
-        sWindow = Tk()
-        sWindow.geometry(f'{round(screenWidth/3)}x{round(screenHeight/3)}+0+0')
-
-        lbl1 = Label(sWindow, text="SELECT FROM TABLE COLUMNS: " )
-        lbl1.place(rely = 0.2, relx = 0.5, anchor = E)
-
-        lbl2 = Label(sWindow, text="(Leave empty for all)")
-        lbl2.place(rely=0.3, relx = 0.5)
-
-
-        cursor = db.cursor(buffered=True)
-        cursor.execute(f"DESC {name};")
-        columns = [i[0] for i in cursor]
-        cursor.close()
-
-
-        parentFrame = LabelFrame(sWindow)
-        parentFrame.place(rely = 0.2, relx= 0.5, anchor = W, relheight = 0.2, relwidth = 0.4)
-
-        frameCanvas = Canvas(parentFrame, background="white")
-        frameCanvas.place(anchor = CENTER, relx= 0.5, rely= 0.5, relheight = 1, relwidth = 1)
-
-        frameScrollbarY = ttk.Scrollbar(parentFrame, orient="vertical", command=frameCanvas.yview)
-        frameScrollbarY.place(anchor = E, rely=0.5, relx=1, relheight = 1)
-
-        frameCanvas.configure(yscrollcommand=frameScrollbarY.set)
-        frameCanvas.bind("<Configure>", lambda e: frameCanvas.configure(scrollregion = frameCanvas.bbox('all')))
-        dFrame = Frame(frameCanvas, background="white")
-
-        selectedButtons = []
-
-        for i in columns:
-            t = Button(dFrame, text=i, borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W)
-            t.configure(command= lambda t=t: buttonClick(t))
-            t.configure(height=round(screenHeight*0.1*0.0075), width=round(screenWidth*0.3*0.9))
-            t.pack(fill="both", expand = YES)
     
-        orderByEnabled = IntVar(sWindow)
-        cOrderButton = Checkbutton(sWindow, variable=orderByEnabled)
-        cOrderButton.place(anchor = W, rely = 0.4, relx = 0.1)
-
-        lbl3 = Label(sWindow, text=" ORDER BY: " )
-        lbl3.place(rely = 0.4, relx = 0.3, anchor = E)
-        cOrderBoxOrd = ttk.Combobox(sWindow, values=("Ascending", "Descending"),state="readonly")
-        cOrderBoxOrd.place(rely = 0.4, relx = 0.6, anchor = W,)
-        cOrderBoxOrd.current(0)
-        cOrderBoxCol = ttk.Combobox(sWindow, values=columns, state="readonly")
-        cOrderBoxCol.place(rely = 0.4, relx = 0.3, anchor = W)
-        cOrderBoxCol.current(0)
-
-        whereEnabled = IntVar(sWindow)
-        cWhereButton = Checkbutton(sWindow, variable = whereEnabled)
-        cWhereButton.place(anchor = W, rely = 0.5, relx = 0.1)
-        
-        lbl4 = Label(sWindow, text="CONDITION: ")
-        lbl4.place(rely = 0.5, relx = 0.3, anchor = E)
-
-        wCol1 = ttk.Combobox(sWindow, values = columns,state="readonly")
-        wCol1.place(rely = 0.5, relx = 0.3, anchor = W, relwidth = 0.15)
-        wCol1.current(0)
-
-        wNot = ttk.Combobox(sWindow, values = ('IS','IS NOT'),state="readonly")
-        wNot.place(rely = 0.5, relx = 0.6,anchor = E, relwidth = 0.1)
-        wNot.current(0)
-
-        wOp = ttk.Combobox(sWindow, values = ("=","<",">","<=",">=", "!="),state="readonly")
-        wOp.place(rely=0.5, relx= 0.6, anchor = W, relwidth = 0.1)
-        wOp.current(0)
-
-        wEntry = Entry(sWindow)
-        wEntry.insert(0, '0')
-        wEntry.place(rely=0.5, relx = 0.9, anchor = E, relwidth = 0.2)
-
-        frameCanvas.create_window((0,0), window=dbFrame, anchor = NW)
-        submitButton = Button(sWindow, text='RUN QUERY', command= runQuery)
-        submitButton.place(anchor=CENTER, relx=0.5, rely = 0.8)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-
-
-    def insertData(name):
-        if len(tables) == 0:
-            messagebox.showerror("ERR","ERROR! No Tables")
-            return 0
-
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            nonlocal db
-            db.close()
-            db = mysql.connector.connect(
-                username = username,
-                host = host,
-                password = password,
-                db = dbName
-            )
-            global activeWin
-            activeWin = None
-            sWindow.destroy()
-        
-        def checkDate(input_text):
-            try: datetime.date.fromisoformat(input_text)
-            except ValueError: return False
-            return True
-
-        def runQuery():
-
-            query = f"INSERT INTO {name}({','.join(list(columns.keys()))}) VALUES("
-            for butt in allButtons:
-                data = butt.get()
-                colName = allButtons[butt]
-                dataType =  columns[colName].lower()
-                try:
-                    dataType = dataType.decode('utf-8')
-                except: pass
-                if data == "": data = "NULL"
-                if colName in notNullColumns and data == "NULL":
-                    messagebox.showerror("ERR!", f"COLUMN - {colName} CANNOT HAVE NULL VALUES")
-                    return 0
-                if colName in uniqueColumns:
-                    cursor = db.cursor()
-                    cursor.execute(f"SELECT {colName} FROM {name}")
-                    k = False
-                    for i in cursor:
-                        j = str(i[0]).lower()
-                        if j== data.lower(): k = True
-                    if k:
-                        messagebox.showerror("ERR!", f"COLUMN - {colName} DATA MUST BE UNIQUE")
-                    cursor.close()
-                if "char" in dataType: data = "\"" + data + "\""
-                elif dataType == "int":
-                    if data.isnumeric() == False and data[1:].isnumeric() == False:
-                        messagebox.showerror("ERR", "INVALID VALUE")
-                        return 0
-                elif dataType == "decimal":
-                    if is_number_regex(data) == False and is_number_regex(data) == False:
-                        messagebox.showerror("ERR", "INVALID VALUE")
-                        return 0
-                elif dataType == "date":
-                    if checkDate(data) == False:
-                        messagebox.showerror("ERR", "INVALID DEFAULT VALUE")
-                        return 0         
-                    data = "\"" + data + "\""
-                print(data, colName, dataType)
-
-                query += data + ","
-            cursor = db.cursor(buffered=True)
-            try:
-                query = query[:-1]+");"
-                cursor.execute(query)
-                try: pyperclip.copy(query)
-                except: pass
-                db.commit()
-            except Exception:
-                messagebox.showerror("ERR", "UNEXPECTED ERROR. MAKE SURE ALL COLUMN CONTSRAINTS ARE FOLLOWED.")
-                cursor.close()
-                return 0
-            else:
-                messagebox.showinfo("SUCCESS!", "DATA ADDED!")
-            cursor.close()
-            killSelf()
-
-        sWindow = Tk()
-        sWindow.geometry()
-        sWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-        parentFrame = LabelFrame(sWindow)
-        parentFrame.place(relx = 0.5, rely = 0.1, anchor = N, relwidth = 1, relheight = 0.7)
-
-        frameCanvas = Canvas(parentFrame, background="white")
-        frameCanvas.place(anchor = CENTER, relx= 0.5, rely= 0.5, relheight = 1, relwidth = 1)
-
-        frameScrollbarY = ttk.Scrollbar(parentFrame, orient="vertical", command=frameCanvas.yview)
-        frameScrollbarY.place(anchor = E, rely=0.5, relx=1, relheight = 1)
-
-        frameScrollbarX = ttk.Scrollbar(parentFrame, orient="horizontal", command=frameCanvas.xview)
-        frameScrollbarX.place(anchor=S, rely=1, relx=0.5, relwidth=1)
-
-        frameCanvas.configure(yscrollcommand=frameScrollbarY.set)
-        frameCanvas.configure(xscrollcommand=frameScrollbarX.set)
-        frameCanvas.bind("<Configure>", lambda e: frameCanvas.configure(scrollregion = frameCanvas.bbox('all')))
-        dFrame = Frame(frameCanvas, background="white")
-        frameCanvas.create_window((0,0), window=dbFrame, anchor = NW)
-
-        cursor = db.cursor()
-        cursor.execute(f"DESC {name};")
-        columns = {}
-        notNullColumns = []
-        uniqueColumns = []
-        allButtons = {}
-
-        for i in cursor:
-            columns[i[0]] = i[1]
-            if i[2] == "NO": notNullColumns.append(i[0])
-            if i[3] == 'UNI' or i[3] == 'PRI': uniqueColumns.append(i[0])
-
-        for i in columns:
-            t = Entry(dFrame, width=round(screenWidth/4), borderwidth=0, background="white", highlightcolor="white")
-            allButtons[t] = i
-            t.insert(0, f"Enter data for {i}")
-            t.pack(fill=X)        
-
-        submitButton = Button(sWindow, text = "Run Query", command = runQuery)
-        submitButton.place(relx=0.5, rely= 0.9, anchor = N)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-   
-    def removeData(tName):
-        if len(tables) == 0:
-            messagebox.showerror("ERR","ERROR! No Tables")
-            return 0
-
-        global activeWin
-
-        if activeWin != None: 
-            messagebox.showerror("ERROR","Another query window open!")
-            return 0
-        
-        def killSelf():
-            global activeWin
-            activeWin = None
-            sWindow.destroy()
-
-        def runQuery():
-            query = f"DELETE FROM {tName}"
-            if whereEnabled.get() == 1:
-                query += " WHERE "
-                operator = wOp.get()
-                if wNot.get() == "IS NOT": query += "NOT "
-                queryVal = wEntry.get()
-                if is_number_regex(queryVal) == False and is_number_regex(queryVal[1:]) == False and queryVal[0]=="-" and queryVal != 'NULL': queryVal = "\"" + queryVal + "\""
-                if queryVal == 'NULL':
-                    if operator == '=': operator = 'IS'
-                    elif operator == '!=': operator = 'IS NOT'
-                    else:
-                        messagebox.showerror("ERR!", "Null only works with = or != operators")
-                        return 0
-
-                query += f"{wCol1.get()} {operator} {queryVal}"
-            
-            cursor = db.cursor()
-            cursor.execute(query+";")
-            cursor.close()
-            try: pyperclip.copy(query+";")
-            except: pass
-            messagebox.showinfo("SUCCESS!", "DATA REMOVED!")
-            killSelf()
-            
-        cursor = db.cursor()
-        cursor.execute(f"DESC {tName};")
-        columns = []
-        for i in cursor: columns.append(i[0])
-        cursor.close()
-
-        sWindow = Tk()
-        sWindow.geometry()
-        sWindow.geometry(f'{round(screenWidth/4)}x{round(screenHeight/4)}+0+0')
-
-        whereEnabled = IntVar(sWindow)
-        cWhereButton = Checkbutton(sWindow, variable = whereEnabled)
-        cWhereButton.place(anchor = W, rely = 0.5, relx = 0.1)
-        
-        lbl4 = Label(sWindow, text="CONDITION: ")
-        lbl4.place(rely = 0.5, relx = 0.3, anchor = E)
-
-        wCol1 = ttk.Combobox(sWindow, values = tuple(columns), state="readonly")
-        wCol1.place(rely = 0.5, relx = 0.3, anchor = W, relwidth = 0.15)
-        wCol1.current(0)
-
-        wNot = ttk.Combobox(sWindow, values = ('IS','IS NOT'),state="readonly")
-        wNot.place(rely = 0.5, relx = 0.6,anchor = E, relwidth = 0.1)
-        wNot.current(0)
-
-        wOp = ttk.Combobox(sWindow, values = ("=","<",">","<=",">=", "!="),state="readonly")
-        wOp.place(rely=0.5, relx= 0.6, anchor = W, relwidth = 0.1)
-        wOp.current(0)
-
-        wEntry = Entry(sWindow)
-        wEntry.insert(0, '0')
-        wEntry.place(rely=0.5, relx = 0.9, anchor = E, relwidth = 0.2)
-
-        submitButton = Button(sWindow, text='Submit', command= runQuery)
-        submitButton.place(anchor=CENTER, relx=0.5, rely = 0.7)
-
-        activeWin = sWindow
-        sWindow.protocol("WM_DELETE_WINDOW", killSelf)
-        sWindow.mainloop()
-
-    db.close()
-    db = mysql.connector.connect(
-        username = username,
-        host = host,
-        password = password,
-        db = dbName
-    )
-
-    cursor = db.cursor(buffered=True)
-    cursor.execute('SHOW TABLES;')
-    for i in cursor: tables.append(i[0])
+    buttonFrame.update_idletasks()
+    selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
     cursor.close()
 
+    createDbButton = Button(initialWindow, text="Create New Database", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command = createDb)
+    createDbButton.place(anchor = W, relx=0.25, rely= 0.85)
+    deleteDbButton = Button(initialWindow, text="Delete Database", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command= lambda: delModeToggle(allButtons))
+    deleteDbButton.place(anchor = E, relx=0.75, rely= 0.85)
 
-    mWindow = Tk()
-    mWindow.title('EasySQL')
-    mWindow.geometry(f'{screenWidth}x{screenHeight}+0+0')
 
-    lbl = Label(mWindow, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), font.BOLD))
-    lbl.place(anchor = CENTER, relx = 0.5, rely=0.0463)
+def queryMenu(initialWindow, subHeading, connection):
 
-    lbl2 = Label(mWindow, text="CHOOSE QUERIES TO PERFORM", fg = 'green', font = ('Helvetica', round(screenHeight*screenWidth*0.00000803766), UNDERLINE),borderwidth=1)
-    lbl2.place(anchor = CENTER, relx = 0.5, rely= 0.15)
+    subHeading.config(text="Select SQL Query")
 
-    dbParentFrame = LabelFrame(mWindow)
-    dbParentFrame.place(anchor=N, relx = 0.5, rely= 0.2, relheight = 0.5, relwidth= 0.5)
+    #Similarly creating a scrollable Frame/Canvas to hold all the supported query buttons
+    selectorCanvas = Canvas(initialWindow)
+    selectorCanvas.place(anchor=N, relx=0.5, rely=0.3, relwidth=0.5, relheight=0.5)
+    selectorScrollbar = Scrollbar(initialWindow, orient="vertical", command=selectorCanvas.yview)
+    selectorScrollbar.place(anchor=W, relx=0.75, rely=0.55, relheight=0.5)
+    selectorCanvas.configure(yscrollcommand=selectorScrollbar.set)
 
-    frameCanvas = Canvas(dbParentFrame, background="white")
-    frameCanvas.place(anchor = CENTER, relx= 0.5, rely= 0.5, relheight = 1, relwidth = 1)
+    buttonFrame = Frame(selectorCanvas)
+    selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
 
-    frameScrollbar = ttk.Scrollbar(dbParentFrame, orient="vertical", command=frameCanvas.yview)
-    frameScrollbar.place(anchor = E, rely=0.5, relx=1, relheight = 1)
+    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Describe Table": lambda: describeTableMenu(connection), "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
+    i = 0
+    for key,value in supportedQueries.items():
+        #Creating and adding the buttons to the frame
+        qButton = Button(buttonFrame, text=key, borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
+        qButton.configure(command= value)
+        qButton.grid(row=i, column=0, pady=0.1)
+        i+=1
 
-    frameCanvas.configure(yscrollcommand=frameScrollbar.set)
-    frameCanvas.bind("<Configure>", lambda e: frameCanvas.configure(scrollregion = frameCanvas.bbox('all')))
+    buttonFrame.update_idletasks()
+    selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
 
-    dbFrame = Frame(frameCanvas, background="white")
-    frameCanvas.create_window((0,0), window=dbFrame, anchor = NW)
 
-    # LIST OF COMPATIBLE QUERIES:
+def createTableMenu(connection,tableMenu: Tk = None, columnData: list[list[str]] = []):
+
+    connection = mysql.connector.connect(host=connection._host, port=connection._port, user=connection._user, password=connection._password, database=connection._database)
     
-    cButton = Button(dbFrame, text="CREATE TABLE", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= createTable)
-    cButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-    cButton.pack(fill="both", expand = YES)
+    def addTable():
+        '''
+        Function Called when Submit button is clicked
+        Validates all information and executes the query
+        Destroys current window and recalls the createTableMenu function
+
+        Validation Checks:
+        - If table name is empty
+        - If table name is invalid
+        - If table contains no columns
+        - If table name already exists
+        On success, closes and reopens the createtablemenu
+        '''
+
+
+        nonlocal tableNameEntry, columnData, connection
+        if len(tableNameEntry.get()) == 0:
+            messagebox.showerror("Error", "Table name is required")
+            return 0
+        if notValidIdentifier(tableNameEntry.get()):
+            messagebox.showerror("Error", "Invalid Table Name")
+            return 0
+        if len(columnData) == 0:
+            messagebox.showerror("Error", "Atleast 1 Column Needed")
+            return 0        
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("SHOW TABLES;")
+        for table in cursor:
+            if table[0] == tableNameEntry.get():
+                messagebox.showerror("Error", "Table Name Already Exists")
+                return 0
+        cursor.close()
+
+        query = f"CREATE TABLE {tableNameEntry.get()}("
+        for column in columnData:
+            if column[1][3][0] and column[1][0] == "varchar(255)": column[1][3][1] = '`'+column[1][3][1]+'`'
+            query+= f"{column[0]} {column[1][0]} "
+            query += "NOT NULL " * (column[1][1])
+            query += "UNIQUE " * (column[1][2])
+            query += f"DEFAULT \'{column[1][3][1]}\'" * column[1][3][0]
+            query += "PRIMARY KEY" * (column[1][4])
+            query += ","   
+        query = query[:-1] + ");"
+        pyperclip.copy(query)
+        cursor = connection.cursor(buffered=True)
+        cursor.execute(query)
+        cursor.close()
+        connection.commit()
+        
+
+        messagebox.showinfo("Table Created", "Table Created Successfully")
+        connection.close()
+        tableMenu.destroy()
+
+        createTableMenu(connection, None, [])
+        return 0
+
+    def addColumnMenu():
+        '''
+        Function Called when Add Column button is clicked
+        Replaces current table with a new temporary table to enter details
+        '''       
+
+        nonlocal tableMenu, tableNameLabel, tableNameEntry, displayTable, submitButton, addColButton
+
+        displayTable.destroy()
+        submitButton.destroy()
+
+        temporaryElements = [tableNameLabel, tableNameEntry]
+
+        tableNameLabel.config(text="Column Name:")
+
+
+        nullToggle = IntVar(tableMenu)
+        nullCheck = ttk.Checkbutton(tableMenu, variable = nullToggle)
+        nullCheck.place(relx = 0.1, rely= 0.3, anchor = E)
+        nullLabel = Label(tableMenu, text="No Null Values", font = ('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        nullLabel.place(relx=0.1, rely=0.3, anchor=W)
+        temporaryElements.extend([nullCheck, nullLabel])
+
+        uniqueToggle = IntVar(tableMenu)
+        uniqueCheck = ttk.Checkbutton(tableMenu, variable = uniqueToggle)
+        uniqueCheck.place(relx = 0.1, rely= 0.4, anchor = E)
+        uniqueLabel = Label(tableMenu, text="Unique Values Only", font = ('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        uniqueLabel.place(relx=0.1, rely=0.4, anchor=W)
+        temporaryElements.extend([uniqueCheck, uniqueLabel])
+
+        defToggle = IntVar(tableMenu)
+        defCheck = ttk.Checkbutton(tableMenu, variable = defToggle)
+        defCheck.place(relx = 0.1, rely= 0.5, anchor = E)
+        defEntry = Entry(tableMenu, font = ('Arial', round(screenHeight*screenWidth*0.000009113)))
+        defEntry.insert(0, "Default Value (Optional)")
+        defEntry.place(relx=0.1, rely=0.5, anchor=W)
+        temporaryElements.extend([defCheck, defEntry])
+
+        primaryToggle = IntVar(tableMenu)
+        primaryCheck = ttk.Checkbutton(tableMenu, variable = primaryToggle)
+        primaryCheck.place(relx = 0.1, rely= 0.6, anchor = E)
+        primaryLabel = Label(tableMenu, text="Is Primary Key", font = ('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        primaryLabel.place(relx=0.1, rely=0.6, anchor=W)
+        temporaryElements.extend([primaryCheck, primaryLabel])
+
+        dataTypeLabel = Label(tableMenu, text="Data Type:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+        dataTypeLabel.place(anchor = E, relx=0.5, rely=0.7)
+        dataTypeComboBox =  ttk.Combobox(tableMenu, values = ("int","decimal","date","varchar(255)","char"), state="readonly")
+        dataTypeComboBox.place(anchor= W, relx=0.5, rely= 0.7)
+        dataTypeComboBox.current(0)
+        temporaryElements.extend([dataTypeLabel, dataTypeComboBox])
+
+        def columnAdd():
+            '''
+            Function Called when Submit button is clicked in the add column menu
+            Validates all information and appends the additional data to columnData
+            Destroys current window and recalls the createTableMenu function
+
+            Validation Checks:
+            - If it contains both unique and default values
+            - If column name is not present
+            - If column name is already in columns
+            - If column name is invalid
+            - If default value is invalid w.r.t data type
+            '''
+
+            nonlocal tableMenu, columnData
+            
+            if uniqueToggle.get() == 1 and defToggle.get() == 1:
+                messagebox.showerror("Error", "Column Cannot Be Unique and Have Default Value")
+                return 0
+
+            if len(tableNameEntry.get()) == 0:
+                messagebox.showerror("Error", "Column Name is required")
+                return 0
+            for columns in columnData:
+                if columns[0] == tableNameEntry.get():
+                    messagebox.showerror("Error", "Column Name Should Be Unique")
+                    return 0
+            if notValidIdentifier(tableNameEntry.get()):
+                messagebox.showerror("Error", "Column Name Invalid")
+                return 0
+            if defToggle.get() and notTypeValid(dataTypeComboBox.get(), defEntry.get()):
+                messagebox.showerror("Error", "Default value invalid")
+                return 0
+            
+
+            columnData.append([tableNameEntry.get(), [dataTypeComboBox.get(), nullToggle.get(), uniqueToggle.get(), [defToggle.get(), defEntry.get()], primaryToggle.get()]])
+            for element in temporaryElements: element.destroy()
+
+            createTableMenu(connection, tableMenu, columnData)
+
+        addColButton.place_forget()
+        addColButton.place(anchor=CENTER, relx=0.5, rely= 0.85)
+        addColButton.config(command=columnAdd)
+        temporaryElements.append(addColButton)
+
     
-    dButton = Button(dbFrame, text="DESCRIBE TABLE", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= descTable)
-    dButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-    dButton.pack(fill="both", expand = YES)
+    if tableMenu is None:
+        tableMenu = Tk()
+        tableMenu.title("Create Table")
+        tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+        tableMenu.protocol("WM_DELETE_WINDOW", lambda: [connection.close(), tableMenu.destroy()])
+
+    tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+    tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
+    tableNameEntry = Entry(tableMenu, width = round((screenWidth/4) * 0.0675), font=('Arial', round(screenHeight*screenWidth*0.0000113), font.BOLD), highlightcolor='black', highlightthickness=1, highlightbackground='black')
+    tableNameEntry.place(anchor= E, relx=0.9, rely= 0.15)            
+
+    displayTable = ttk.Treeview(tableMenu)
+    displayTable['columns'] = ('Column', 'Attributes')
+
+    displayTable.column("#0", minwidth=10)
+    displayTable.column("Column", minwidth = 5)
+    displayTable.column("Attributes", minwidth = 10)
+
+    displayTable.heading("#0", text="S. No.", anchor = W)        
+    displayTable.heading("Column", text="Column", anchor = W)
+    displayTable.heading("Attributes", text="Attributes", anchor = W)  
+
+    displayTable.place(anchor=N, relx = 0.5, rely = 0.3, width = screenWidth/2.5)
+
+
+    for i in range(len(columnData)):
+        #Adding the columns to the table along with the attributes
+
+        attributeList = columnData[i][1]
+        attributeStr = f"DataType: {attributeList[0]}"
+        if attributeList[1] == 1: attributeStr += ", No Null Values"
+        if attributeList[2] == 1: attributeStr += ", Unique Values Only"
+        if attributeList[3][0] == 1: attributeStr += f", Default Value {attributeList[3][1]}"
+        if attributeList[4] == 1: attributeStr += ", Primary Key"
+        
+        displayTable.insert(parent="", index='end', iid = i, text=i, values = (columnData[i][0], attributeStr))
+
+    submitButton = Button(tableMenu, text="Submit", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=addTable)
+    submitButton.place(anchor=E, relx=0.8, rely= 0.85)
+
+    addColButton = Button(tableMenu, text="Add Column", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=addColumnMenu)
+    addColButton.place(anchor=W, relx=0.2, rely= 0.85)
+
+def describeTableMenu(connection):
+    connection = mysql.connector.connect(host=connection._host, port=connection._port, user=connection._user, password=connection._password, database=connection._database)
+
+    cursor = connection.cursor(buffered=True)
+    query = "SHOW TABLES;"
+    cursor.execute(query)
+    pyperclip.copy(query)
+
+    tables = tuple(i[0] for i in cursor.fetchall())
+    if len(tables) == 0:
+        messagebox.showerror("Error", "No Tables Found")
+        return 0
     
-    deButton = Button(dbFrame, text="DELETE TABLE", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= dropTable)
-    deButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-    deButton.pack(fill="both", expand = YES)
+    cursor.close()
 
-    sButton = Button(dbFrame, text="SELECT DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= lambda: tableMenu(selectTable))
-    sButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-    sButton.pack(fill="both", expand = YES)    
+    tableMenu = Tk()
+    tableMenu.title("Describe Table")
+    tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+    tableMenu.protocol("WM_DELETE_WINDOW", lambda: [connection.close(), tableMenu.destroy()])
 
-    sButton = Button(dbFrame, text="INSERT DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= lambda: tableMenu(insertData))
-    sButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-    sButton.pack(fill="both", expand = YES)    
+    tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+    tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
+    tableNameCombobox =  ttk.Combobox(tableMenu, values = tables, state="readonly")
+    tableNameCombobox.current(0)    
+    tableNameCombobox.place(anchor= E, relx=0.9, rely= 0.15)
 
-    rButton = Button(dbFrame, text="REMOVE DATA", borderwidth=0, background="white", highlightcolor="white", activeforeground="blue", anchor=W, command= lambda: tableMenu(removeData))
-    rButton.configure(height=round(screenHeight*0.5*0.0075), width=round(screenWidth*0.5*0.9))
-    rButton.pack(fill="both", expand = YES)  
+    displayTable = ttk.Treeview(tableMenu)
+    displayTable['columns'] = ('Field', 'Type', 'Key', 'Default', 'Extra')
+
+    scrollbarX = Scrollbar(tableMenu, orient=HORIZONTAL, command=displayTable.xview)
+    scrollbarX.place(anchor=N, relx=0.5, rely=0.95, width=screenWidth/2.5)
+    displayTable.configure(xscrollcommand=scrollbarX.set)
+    scrollbarX.configure(command=displayTable.xview)
+
+    scrollbarY = Scrollbar(tableMenu, orient=VERTICAL, command=displayTable.yview)
+    scrollbarY.place(anchor=W, relx=0.9, rely=0.5, height=(screenHeight/2)*0.4)
+    displayTable.configure(yscrollcommand=scrollbarY.set)
+    scrollbarY.configure(command=displayTable.yview)
+
+
+    displayTable.column("#0", minwidth=10)
+    displayTable.column("Field", minwidth = 10)
+    displayTable.column("Type", minwidth = 10)
+    displayTable.column("Key", minwidth = 10)
+    displayTable.column("Default", minwidth = 10)
+    displayTable.column("Extra", minwidth = 10)
+
+    displayTable.heading("#0", text="S. No.", anchor = W)        
+    displayTable.heading("Field", text="Field", anchor = W)
+    displayTable.heading("Type", text="Type", anchor = W)
+    displayTable.heading("Key", text="Key", anchor = W)
+    displayTable.heading("Default", text="Default", anchor = W)
+    displayTable.heading("Extra", text="Extra", anchor = W)
+
+    displayTable.place(anchor=N, relx = 0.5, rely = 0.3, width = screenWidth/2.5)
+
+    def fetchData():
+
+        for data in displayTable.get_children(): displayTable.delete(data)
+
+        cursor = connection.cursor(buffered=True)
+        query = f"DESCRIBE {tableNameCombobox.get()};"
+        cursor.execute(query)
+        pyperclip.copy(query)
+        result = cursor.fetchall()
+        cursor.close()
+
+        for i in range(len(result)):
+            displayTable.insert(parent="", index='end', iid = i, text=i, values = (result[i][0], result[i][1], result[i][3], result[i][4], result[i][5]))
+
+
+    submitButton = Button(tableMenu, text="Fetch Data", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=fetchData)
+    submitButton.place(anchor=CENTER, relx=0.5, rely= 0.85)
+
 
     
 
-    mWindow .mainloop()
+#just temporary
 
-
-
-
-
-
+selectDataMenu = lambda: print("Select Data")
+updateDataMenu = lambda: print("Update Data")
+deleteDataMenu = lambda: print("Delete Data")
+dropTableMenu = lambda: print("Drop Table")
+showTablesMenu = lambda: print("Show Tables")
 
 
 
 '''
-BASIC WINDOW SETUP
+Start Window
 '''
-lbl=Label(window, text="EasySQL", fg='green', font=('Helvetica', round(screenHeight*screenWidth*0.000024113), font.BOLD))
-lbl.place(anchor = CENTER, x=round(screenWidth/2), y=screenHeight*0.0463)
-window.title('EasySQL')
-window.geometry(f'{screenWidth}x{screenHeight}+0+0')
+titleHeading=Label(initialWindow, text="EasySQL", fg='green', font=('Terminal', round(screenHeight*screenWidth*0.000044113), font.BOLD))
+titleHeading.place(anchor = CENTER, x=round(screenWidth/2), y=screenHeight*0.0663)
 
-sImg = Image.open(os.path.join(filePath, 'start.png'))
-sImg = ImageTk.PhotoImage(sImg)
-sButton = Button(window, image= sImg, borderwidth=0, command = start)
-sButton.place(relx = 0.5, rely = 0.5, anchor = CENTER)
+# Get Image Path [Changes depending on whether running py file or as compiled executable]
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    imagePath = sys._MEIPASS
+else: imagePath = os.path.dirname(__file__)
 
-window.protocol("WM_DELETE_WINDOW", lambda: [window.destroy(), mLogWindow.destroy()] if logOpened else window.destroy())
-window.mainloop()
+startImg = ImageTk.PhotoImage(file = os.path.join(imagePath, 'start.png'))
+startButton = Button(initialWindow, image= startImg, borderwidth=0, command = lambda: startFunction(initialWindow, startButton))
+startButton.place(relx = 0.5, rely = 0.5, anchor = CENTER)
+
+initialWindow.geometry(f"{screenWidth}x{screenHeight}")
+initialWindow.mainloop()
