@@ -44,7 +44,7 @@ jobs:
           path: dist/main
 
   build-windows:
-    name: Build Ubuntu Executable
+    name: Build Windows Executable
     runs-on: windows-latest
 
     steps:
