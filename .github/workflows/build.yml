@@ -10,6 +10,7 @@ on:
 
 jobs:
   build-ubuntu:
+    name: Build Ubuntu Executable
     runs-on: ubuntu-latest
 
     steps:
@@ -31,12 +32,10 @@ jobs:
           pip install -r requirements.txt  
 
       - name: Install PyInstaller
-        run: |
-          pip install pyinstaller
+        run: pip install pyinstaller          
 
       - name: Build executable with PyInstaller
-        run: |
-          pyinstaller --onefile --noconsole --add-data "start.png:." main.py
+        run: pyinstaller --onefile --noconsole --add-data "start.png:." main.py          
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
@@ -45,6 +44,7 @@ jobs:
           path: dist/main
 
   build-windows:
+    name: Build Ubuntu Executable
     runs-on: windows-latest
 
     steps:
@@ -65,8 +65,7 @@ jobs:
         run: pip install pyinstaller
 
       - name: Build executable with PyInstaller
-        run: |
-          pyinstaller --onefile --noconsole --add-data "start.png;." main.py
+        run: pyinstaller --onefile --noconsole --add-data "start.png;." main.py          
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
