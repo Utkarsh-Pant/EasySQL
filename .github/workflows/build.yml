@@ -36,7 +36,7 @@ jobs:
 
       - name: Build executable with PyInstaller
         run: |
-          pyinstaller --onefile --add-data "start.png:." main.py
+          pyinstaller --onefile --noconsole --add-data "start.png:." main.py
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
@@ -66,7 +66,7 @@ jobs:
 
       - name: Build executable with PyInstaller
         run: |
-          pyinstaller --onefile --add-data "start.png;." main.py
+          pyinstaller --onefile --noconsole --add-data "start.png;." main.py
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
