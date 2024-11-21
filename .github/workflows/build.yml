@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install tkinter/
@@ -39,7 +39,7 @@ jobs:
           pyinstaller --onefile --add-data "start.png:." main.py
 
       - name: Upload executable
-        uses: actions/upload-artifact
+        uses: actions/upload-artifact@v4
         with:
           name: ubuntu-executable
           path: dist/main
@@ -49,10 +49,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
@@ -69,7 +69,7 @@ jobs:
           pyinstaller --onefile --add-data "start.png;." main.py
 
       - name: Upload executable
-        uses: actions/upload-artifact
+        uses: actions/upload-artifact@v4
         with:
           name: win-executable
           path: dist/main.exe
