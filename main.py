@@ -270,7 +270,7 @@ def queryMenu(initialWindow, subHeading, connection):
     buttonFrame = Frame(selectorCanvas)
     selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
 
-    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Describe Table": lambda: describeTableMenu(connection), "Select Data": selectDataMenu, "Update Data": updateDataMenu, "Delete Data": deleteDataMenu, "Drop Table": dropTableMenu, "Show Tables": showTablesMenu}    
+    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Describe Table": lambda: describeTableMenu(connection), "Drop Table": lambda: dropTableMenu(connection), "Insert Data": lambda: insertData, "Delete Data": deleteDataMenu, "Show Tables": showTablesMenu}    
     i = 0
     for key,value in supportedQueries.items():
         #Creating and adding the buttons to the frame
@@ -423,6 +423,7 @@ def createTableMenu(connection,tableMenu: Tk = None, columnData: list[list[str]]
                 if columns[0] == tableNameEntry.get():
                     messagebox.showerror("Error", "Column Name Should Be Unique")
                     return 0
+
             if notValidIdentifier(tableNameEntry.get()):
                 messagebox.showerror("Error", "Column Name Invalid")
                 return 0
@@ -559,15 +560,109 @@ def describeTableMenu(connection):
     submitButton = Button(tableMenu, text="Fetch Data", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=fetchData)
     submitButton.place(anchor=CENTER, relx=0.5, rely= 0.85)
 
+def dropTableMenu(connection):
+    connection = mysql.connector.connect(host=connection._host, port=connection._port, user=connection._user, password=connection._password, database=connection._database)
 
+    cursor = connection.cursor(buffered=True)
+    query = "SHOW TABLES;"
+    cursor.execute(query)
+    pyperclip.copy(query)
+
+    tables = tuple(i[0] for i in cursor.fetchall())
+    if len(tables) == 0:
+        messagebox.showerror("Error", "No Tables Found")
+        return 0
     
+    cursor.close()
+
+    tableMenu = Tk()
+    tableMenu.title("Drop Table")
+    tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+    tableMenu.protocol("WM_DELETE_WINDOW", lambda: [connection.close(), tableMenu.destroy()])
+
+    tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+    tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
+    tableNameCombobox =  ttk.Combobox(tableMenu, values = tables, state="readonly")
+    tableNameCombobox.current(0)    
+    tableNameCombobox.place(anchor= E, relx=0.9, rely= 0.15)
+    
+
+    def dropTable():
+        tableName = tableNameCombobox.get()
+        query = f"DROP TABLE `{tableName}`"
+        cursor = connection.cursor(buffered=True)
+        cursor.execute(query)
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        tableMenu.destroy()
+        messagebox.showinfo("Table Dropped", "Succesfully Dropped the table!")
+        pyperclip.copy(query)
+
+        return 0
+
+    submitButton = Button(tableMenu, text="Delete Table", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=dropTable)
+    submitButton.place(anchor=CENTER, relx=0.5, rely= 0.85)    
+
+def insertData(connection):
+    connection = mysql.connector.connect(host=connection._host, port=connection._port, user=connection._user, password=connection._password, database=connection._database)
+
+    cursor = connection.cursor(buffered=True)
+    query = "SHOW TABLES;"
+    cursor.execute(query)
+    pyperclip.copy(query)
+
+    tables = tuple(i[0] for i in cursor.fetchall())
+    if len(tables) == 0:
+        messagebox.showerror("Error", "No Tables Found")
+        return 0
+    
+    cursor.close()
+
+    tableMenu = Tk()
+    tableMenu.title("Insert Data")
+    tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+    tableMenu.protocol("WM_DELETE_WINDOW", lambda: [connection.close(), tableMenu.destroy()])
+
+    tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+    tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
+    tableNameCombobox =  ttk.Combobox(tableMenu, values = tables, state="readonly")
+    tableNameCombobox.current(0)    
+    tableNameCombobox.place(anchor= E, relx=0.9, rely= 0.15)
+
+    def insert():
+        tableName = tableNameCombobox.get()
+        query = f"DROP TABLE `{tableName}`"
+        cursor = connection.cursor(buffered=True)
+        cursor.execute(query)
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        tableMenu.destroy()
+        messagebox.showinfo("Table Dropped", "Succesfully Dropped the table!")
+        pyperclip.copy(query)
+
+        return 0
+
+    def fetchData():
+        pass
+
+    fetchButton = Button(tableMenu, text="Delete Table", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=fetchData)
+    fetchButton.place(anchor=W, relx=0.5, rely= 0.9)
+
+
+    submitButton = Button(tableMenu, text="Delete Table", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=insert)
+    submitButton.place(anchor=E, relx=0.5, rely= 0.9)    
 
 #just temporary
 
 selectDataMenu = lambda: print("Select Data")
 updateDataMenu = lambda: print("Update Data")
 deleteDataMenu = lambda: print("Delete Data")
-dropTableMenu = lambda: print("Drop Table")
 showTablesMenu = lambda: print("Show Tables")
 
 
