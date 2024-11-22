@@ -14,7 +14,6 @@ initialWindow = Tk()
 initialWindow.title("EasySQL")
 
 
-
 '''
 Root Variables
 '''
