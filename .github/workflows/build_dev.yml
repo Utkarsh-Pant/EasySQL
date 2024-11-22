@@ -1,13 +1,13 @@
-name: Build Executable
+name: Build Executable - Dev mode
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-
+    workflow_dispatch:
+        inputs:
+            branch:
+                description: 'Branch to build from'
+                required: true
+                default: 'dev'
+    
 jobs:
   build-ubuntu:
     name: Build Ubuntu Executable
@@ -17,13 +17,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: main
+            ref: ${{ inputs.branch }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install tkinter
+      - name: Install tkinter/
         run: |
           sudo apt-get update
           sudo apt-get install python3-tk
@@ -37,7 +37,7 @@ jobs:
         run: pip install pyinstaller          
 
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --noconsole --add-data "start.png:." main.py          
+        run: pyinstaller --onefile --add-data "start.png:." main.py          
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
@@ -67,7 +67,7 @@ jobs:
         run: pip install pyinstaller
 
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --noconsole --add-data "start.png;." main.py          
+        run: pyinstaller --onefile --add-data "start.png;." main.py          
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
