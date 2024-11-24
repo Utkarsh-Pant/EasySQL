@@ -14,7 +14,6 @@ initialWindow = Tk()
 initialWindow.title("EasySQL")
 
 
-
 '''
 Root Variables
 '''
@@ -270,7 +269,7 @@ def queryMenu(initialWindow, subHeading, connection):
     buttonFrame = Frame(selectorCanvas)
     selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
 
-    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Describe Table": lambda: describeTableMenu(connection), "Drop Table": lambda: dropTableMenu(connection), "Insert Data": lambda: insertData, "Delete Data": deleteDataMenu, "Show Tables": showTablesMenu}    
+    supportedQueries = {"Create Table": lambda: createTableMenu(connection), "Describe Table": lambda: describeTableMenu(connection), "Drop Table": lambda: dropTableMenu(connection), "Insert Data": lambda: insertData(connection), "Select Data": lambda: selectData(connection)}    
     i = 0
     for key,value in supportedQueries.items():
         #Creating and adding the buttons to the frame
@@ -492,7 +491,6 @@ def describeTableMenu(connection):
     cursor = connection.cursor(buffered=True)
     query = "SHOW TABLES;"
     cursor.execute(query)
-    pyperclip.copy(query)
 
     tables = tuple(i[0] for i in cursor.fetchall())
     if len(tables) == 0:
@@ -566,7 +564,6 @@ def dropTableMenu(connection):
     cursor = connection.cursor(buffered=True)
     query = "SHOW TABLES;"
     cursor.execute(query)
-    pyperclip.copy(query)
 
     tables = tuple(i[0] for i in cursor.fetchall())
     if len(tables) == 0:
@@ -612,7 +609,6 @@ def insertData(connection):
     cursor = connection.cursor(buffered=True)
     query = "SHOW TABLES;"
     cursor.execute(query)
-    pyperclip.copy(query)
 
     tables = tuple(i[0] for i in cursor.fetchall())
     if len(tables) == 0:
@@ -632,38 +628,152 @@ def insertData(connection):
     tableNameCombobox.current(0)    
     tableNameCombobox.place(anchor= E, relx=0.9, rely= 0.15)
 
+    selectorCanvas = Canvas(tableMenu)
+    selectorCanvas.place(anchor=N, relx=0.5, rely=0.3, relwidth=0.8, relheight=0.5)
+    selectorScrollbar = Scrollbar(tableMenu, orient="vertical", command=selectorCanvas.yview)
+    selectorScrollbar.place(anchor=W, relx=0.9, rely=0.55, relheight=0.5)
+    selectorCanvas.configure(yscrollcommand=selectorScrollbar.set)
+
+    buttonFrame = Frame(selectorCanvas)
+    selectorCanvas.create_window((0,0), window=buttonFrame, anchor="nw")
+    
+    types = []
+
     def insert():
-        tableName = tableNameCombobox.get()
-        query = f"DROP TABLE `{tableName}`"
-        cursor = connection.cursor(buffered=True)
-        cursor.execute(query)
+        query = f"INSERT INTO {tableNameCombobox.get()} VALUES("
         
-        connection.commit()
-        cursor.close()
-        connection.close()
+        entryIndex = 0
+        for widget in buttonFrame.winfo_children():
+            if widget.winfo_class() == "Entry":
+                print(types[entryIndex])
+                if types[entryIndex][0] == "c" or types[entryIndex][0] == "v" or types[entryIndex][:2] == "da":
+                    query += f"\'{widget.get()}\',"
+                else: query += f"{widget.get()},"
+                entryIndex += 1
+        query = query[:-1] + ");"
+        cursor = connection.cursor(buffered=True)
+        try:
+            cursor.execute(query)
+        except mysql.connector.errors.DatabaseError as e:
+            messagebox.showerror("Error", f"Invalid Data. Make sure all constraints and datatypes are being properly followed.\n\n Query: {query}\n\n{str(e)}")   
+            print(str(e))
+        else:
+            connection.commit()
+            messagebox.showinfo("Data Inserted", "Data Inserted Successfully")
+        cursor.close()  
 
-        tableMenu.destroy()
-        messagebox.showinfo("Table Dropped", "Succesfully Dropped the table!")
         pyperclip.copy(query)
-
         return 0
 
     def fetchData():
-        pass
+        types.clear()
+        for widget in buttonFrame.winfo_children(): widget.destroy()
 
-    fetchButton = Button(tableMenu, text="Delete Table", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=fetchData)
+        cursor = connection.cursor(buffered=True)
+        query = f"DESCRIBE {tableNameCombobox.get()};"
+        cursor.execute(query)
+        
+        for i,j in enumerate(cursor.fetchall()):
+            types.append(j[1])
+            colLabel = Label(buttonFrame, text=j[0], font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+            colEntry = Entry(buttonFrame, font=('Arial', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+            colEntry.insert(0,j[1])
+            colLabel.grid(row=i, column=0)
+            colEntry.grid(row=i, column=1)
+        cursor.close()
+
+        buttonFrame.update_idletasks()
+        selectorCanvas.config(scrollregion=selectorCanvas.bbox("all"))
+        
+
+    fetchButton = Button(tableMenu, text="Fetch Data", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=fetchData)
     fetchButton.place(anchor=W, relx=0.5, rely= 0.9)
 
 
-    submitButton = Button(tableMenu, text="Delete Table", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=insert)
+    submitButton = Button(tableMenu, text="Insert Data", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=insert)
     submitButton.place(anchor=E, relx=0.5, rely= 0.9)    
 
-#just temporary
+def selectData(connection, queryAdvanced = None):
+    connection = mysql.connector.connect(host=connection._host, port=connection._port, user=connection._user, password=connection._password, database=connection._database)
 
-selectDataMenu = lambda: print("Select Data")
-updateDataMenu = lambda: print("Update Data")
-deleteDataMenu = lambda: print("Delete Data")
-showTablesMenu = lambda: print("Show Tables")
+    cursor = connection.cursor(buffered=True)
+    query = "SHOW TABLES;"
+    cursor.execute(query)
+
+    tables = tuple(i[0] for i in cursor.fetchall())
+    if len(tables) == 0:
+        messagebox.showerror("Error", "No Tables Found")
+        return 0
+    
+    cursor.close()
+
+    tableMenu = Tk()
+    tableMenu.title("Select Table")
+    tableMenu.geometry(f"{int(screenWidth/2)}x{int(screenHeight/2)}")
+    tableMenu.protocol("WM_DELETE_WINDOW", lambda: [connection.close(), tableMenu.destroy()])
+
+    tableNameLabel = Label(tableMenu, text="Table Name:", font=('Terminal', round(screenHeight*screenWidth*0.000009113), font.BOLD))
+    tableNameLabel.place(anchor = W, relx=0.1, rely=0.15)
+    tableNameCombobox =  ttk.Combobox(tableMenu, values = tables, state="readonly")
+    tableNameCombobox.current(0)    
+    tableNameCombobox.place(anchor= E, relx=0.9, rely= 0.15)
+
+    displayTable = ttk.Treeview(tableMenu)
+    displayTable['show'] = 'headings'
+
+    scrollbarX = Scrollbar(tableMenu, orient=HORIZONTAL, command=displayTable.xview)
+    scrollbarX.place(anchor=N, relx=0.5, rely=0.95, width=screenWidth/2.5)
+    displayTable.configure(xscrollcommand=scrollbarX.set)
+    scrollbarX.configure(command=displayTable.xview)
+
+    scrollbarY = Scrollbar(tableMenu, orient=VERTICAL, command=displayTable.yview)
+    scrollbarY.place(anchor=W, relx=0.9, rely=0.5, height=(screenHeight/2)*0.4)
+    displayTable.configure(yscrollcommand=scrollbarY.set)
+    scrollbarY.configure(command=displayTable.yview)
+
+    displayTable.place(anchor=N, relx = 0.5, rely = 0.3, width = screenWidth/2.5)
+
+    def fetchData(queryAdvanced = None):
+
+        displayTable.delete(*displayTable.get_children())
+
+        cursor = connection.cursor(buffered=True)
+        query = f"DESCRIBE {tableNameCombobox.get()};"
+        cursor.execute(query)
+        result = cursor.fetchall()
+        cursor.close()
+
+        columns = []
+        for i in range(len(result)):
+            columns.append(result[i][0])
+
+        displayTable['columns'] = columns
+        for i in columns:
+            displayTable.column(i, minwidth = 10)
+            displayTable.heading(i, text=i, anchor = W)
+
+        cursor = connection.cursor(buffered=True)
+
+        if queryAdvanced is None: query = f"SELECT * FROM {tableNameCombobox.get()};"
+        else: query = queryAdvanced
+
+        cursor.execute(query)
+        pyperclip.copy(query)
+        result = cursor.fetchall()
+        cursor.close()
+
+        for i in range(len(result)):
+            displayTable.insert(parent="", index='end', iid = i, values = result[i])
+        
+        
+
+    submitButton = Button(tableMenu, text="Fetch Data", font=('Terminal', round(screenHeight*screenWidth*0.0000113), font.BOLD), command=fetchData)
+    if(queryAdvanced!=None): fetchData(queryAdvanced)
+    submitButton.place(anchor=CENTER, relx=0.5, rely= 0.85)  
+
+def selectDataAdvanced(connection):
+    pass
+
 
 
 
