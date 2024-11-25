@@ -6,7 +6,7 @@ on:
             branch:
                 description: 'Branch to build from'
                 required: true
-                default: 'dev'
+                default: 'style'
     
 jobs:
   build-ubuntu:
@@ -37,7 +37,7 @@ jobs:
         run: pip install pyinstaller          
 
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --add-data "start.png:." main.py          
+        run: pyinstaller --onefile main.py          
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
@@ -67,7 +67,7 @@ jobs:
         run: pip install pyinstaller
 
       - name: Build executable with PyInstaller
-        run: pyinstaller --onefile --add-data "start.png;." main.py          
+        run: pyinstaller --onefile main.py          
 
       - name: Upload executable
         uses: actions/upload-artifact@v4

@@ -1,3 +1,4 @@
 mysql-connector-python==9.1.0
 pillow==11.0.0
 pyperclip==1.9.0
+customtkinter==5.2.2
