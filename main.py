@@ -21,6 +21,7 @@ blueColor = "#77bdfb"
 purpleColor = "#cea5fb"
 redColor = "#fa7970"
 whiteColor = "#ecf2f8"
+greenColor = "#2ea043"
 textFont = CTkFont(family="Helvetica", size=(screenWidth*screenHeight)//60000, weight="bold")
 
 
@@ -73,9 +74,8 @@ def loginPage(initialWindow, appSubheading, appUnderline, startButton: CTkButton
 
     def resetDetails(): #self-explanatory :/
         for i in dataWidgets:
-            print(i)
             i[1].delete(0, END)
-            i[0].insert(0, defaultValues[dataWidgets.index(i)])
+            i[1].insert(0, defaultValues[dataWidgets.index(i)])
 
     def submitDetails():
 
@@ -99,9 +99,28 @@ def loginPage(initialWindow, appSubheading, appUnderline, startButton: CTkButton
         dbConnectionMenu(initialWindow, appSubheading, connection)
                      
 
-    submitButton = CTkButton(initialWindow, text="Submit", font=textFont, command = submitDetails)
+    submitButton = CTkButton(
+        initialWindow, 
+        text="Submit", 
+        font=textFont, 
+        command = submitDetails, 
+        border_color= orangeColor, 
+        border_width=2, 
+        fg_color=bgColor, 
+        hover=False
+    )
     submitButton.place(anchor = E, relx=0.49, rely= 0.7)
-    resetButton = CTkButton(initialWindow, text="Reset Details", font=textFont, command = resetDetails)
+
+    resetButton = CTkButton(
+        initialWindow, 
+        text="Reset Details", 
+        font=textFont, 
+        command = resetDetails, 
+        border_color= orangeColor, 
+        border_width=2, 
+        fg_color=bgColor, 
+        hover=False
+    )
     resetButton.place(anchor = W, relx=0.51, rely= 0.7)
     
 def dbConnectionMenu(a,b,c): pass
@@ -110,7 +129,16 @@ def dbConnectionMenu(a,b,c): pass
 
 
 
-appName = CTkButton(initialWindow, text="EasySQL", font=CTkFont(family="Impact", size=(screenWidth*screenHeight)//10000), bg_color=bgColor, text_color=orangeColor, fg_color="transparent", hover=False)
+appName = CTkButton(
+    initialWindow, 
+    text="EasySQL", 
+    font=CTkFont(family="Impact", size=(screenWidth*screenHeight)//10000), 
+    bg_color=bgColor, 
+    text_color=orangeColor, 
+    fg_color="transparent", 
+    hover=False
+)
+
 appUnderline = CTkLabel(initialWindow, fg_color=grayColor, text="")
 appSubheading = CTkLabel(initialWindow, text="Easy Execution. Easy life.", fg_color=bgColor, text_color=blueColor, font=textFont)
 
